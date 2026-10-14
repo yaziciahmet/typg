@@ -17,7 +17,7 @@ func (UserID) SQLName() string    { return "id" }
 func (UserID) Qualifier() string  { return "users.id" }
 func (UserID) Table() query.Table { return Users{} }
 func (UserID) Eq(v int64) query.Expr {
-	return query.RawExpr("users.id = ?", v)
+	return query.Eq(UserID{}, v)
 }
 
 type UserName struct{ users Users }
@@ -26,7 +26,7 @@ func (UserName) SQLName() string    { return "name" }
 func (UserName) Qualifier() string  { return "users.name" }
 func (UserName) Table() query.Table { return Users{} }
 func (UserName) Eq(v string) query.Expr {
-	return query.RawExpr("users.name = ?", v)
+	return query.Eq(UserName{}, v)
 }
 
 type UserEmail struct{ users Users }
@@ -35,7 +35,7 @@ func (UserEmail) SQLName() string    { return "email" }
 func (UserEmail) Qualifier() string  { return "users.email" }
 func (UserEmail) Table() query.Table { return Users{} }
 func (UserEmail) Eq(v string) query.Expr {
-	return query.RawExpr("users.email = ?", v)
+	return query.Eq(UserEmail{}, v)
 }
 
 type UserStatus struct{ users Users }
@@ -44,7 +44,7 @@ func (UserStatus) SQLName() string    { return "status" }
 func (UserStatus) Qualifier() string  { return "users.status" }
 func (UserStatus) Table() query.Table { return Users{} }
 func (UserStatus) Eq(v string) query.Expr {
-	return query.RawExpr("users.status = ?", v)
+	return query.Eq(UserStatus{}, v)
 }
 
 type UserLastLoginAt struct{ users Users }
@@ -53,7 +53,7 @@ func (UserLastLoginAt) SQLName() string    { return "last_login_at" }
 func (UserLastLoginAt) Qualifier() string  { return "users.last_login_at" }
 func (UserLastLoginAt) Table() query.Table { return Users{} }
 func (UserLastLoginAt) Lt(v time.Time) query.Expr {
-	return query.RawExpr("users.last_login_at < ?", v)
+	return query.Lt(UserLastLoginAt{}, v)
 }
 
 type UserUpdatedAt struct{ users Users }

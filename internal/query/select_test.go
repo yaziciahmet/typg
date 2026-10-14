@@ -193,3 +193,20 @@ func TestSelectRawInterleaved(t *testing.T) {
 		t.Fatalf("args = %v", args)
 	}
 }
+
+func TestSelectOrderByRawBindsArgs(t *testing.T) {
+	sql, args := query.Select(querytest.TUsersID).
+		From(querytest.TUsers).
+		Where(query.Eq(querytest.TUsersID, int64(7))).
+		OrderByAsc(query.NewRawCol("COALESCE(?, ?)", querytest.TUsersName, "none")).
+		OrderByDesc(querytest.TUsersID).
+		Build()
+
+	want := "SELECT users.id FROM users WHERE users.id = $1 ORDER BY COALESCE(users.name, $2), users.id DESC"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 2 || args[0] != int64(7) || args[1] != "none" {
+		t.Fatalf("args = %v", args)
+	}
+}
