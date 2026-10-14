@@ -147,7 +147,12 @@ func emitColumnMethods(b *strings.Builder, imps *imports, cType string, col sche
 		fmt.Fprintf(b, "func (c %s) Contains(v %s) query.Expr { return query.Contains(c, v) }\n", cType, elemType)
 	}
 
+	fmt.Fprintf(b, "func (c %s) Set(v %s) query.Assignment { return query.Assign(c, v) }\n", cType, valType)
+	fmt.Fprintf(b, "func (c %s) SetExpr(sql string, args ...any) query.Assignment { return query.AssignExpr(c, sql, args...) }\n", cType)
+	fmt.Fprintf(b, "func (c %s) SetExcluded() query.Assignment { return query.AssignExcluded(c) }\n", cType)
+
 	if col.Nullable {
+		fmt.Fprintf(b, "func (c %s) SetNull() query.Assignment { return query.Assign(c, nil) }\n", cType)
 		fmt.Fprintf(b, "func (c %s) IsNull() query.Expr { return query.IsNull(c) }\n", cType)
 		fmt.Fprintf(b, "func (c %s) NotNull() query.Expr { return query.NotNull(c) }\n", cType)
 	}

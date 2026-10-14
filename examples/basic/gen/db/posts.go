@@ -64,6 +64,12 @@ func (c postsIDCol) In(vals ...int64) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c postsIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
+func (c postsIDCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c postsIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+
 type postsUserIDCol struct{}
 
 func (postsUserIDCol) SQLName() string    { return "user_id" }
@@ -89,6 +95,12 @@ func (c postsUserIDCol) In(vals ...int64) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c postsUserIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
+func (c postsUserIDCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c postsUserIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
 type postsTitleCol struct{}
 
@@ -118,6 +130,11 @@ func (c postsTitleCol) In(vals ...string) query.Expr {
 
 func (c postsTitleCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c postsTitleCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
+func (c postsTitleCol) Set(v string) query.Assignment   { return query.Assign(c, v) }
+func (c postsTitleCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c postsTitleCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
 type postsPublishedCol struct{}
 
@@ -136,6 +153,12 @@ func (c postsPublishedCol) In(vals ...bool) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c postsPublishedCol) Set(v bool) query.Assignment { return query.Assign(c, v) }
+func (c postsPublishedCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c postsPublishedCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
 type postsCreatedAtCol struct{}
 
@@ -162,3 +185,9 @@ func (c postsCreatedAtCol) In(vals ...time.Time) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c postsCreatedAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
+func (c postsCreatedAtCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c postsCreatedAtCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }

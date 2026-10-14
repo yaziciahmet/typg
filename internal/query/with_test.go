@@ -20,9 +20,9 @@ func TestCTEUpdateFrom(t *testing.T) {
 	sql, args := query.With("stale").
 		As(staleSel).
 		Update(querytest.TUsers).
-		Set(querytest.TUsersStatus, "inactive").
-		Set(querytest.TUsersUpdatedAt, now).
-		From("stale").
+		Set(query.Assign(querytest.TUsersStatus, "inactive")).
+		Set(query.Assign(querytest.TUsersUpdatedAt, now)).
+		From(query.Named("stale")).
 		Where(query.EqCol(querytest.TUsersID, query.Col("stale", "id"))).
 		Build()
 
@@ -39,7 +39,7 @@ func TestCTEModifyingInsertFromSelect(t *testing.T) {
 	cutoff := time.Unix(100, 0)
 
 	moved := query.Update(querytest.TPosts).
-		Set(querytest.TPostPublished, false).
+		Set(query.Assign(querytest.TPostPublished, false)).
 		Where(query.RawExpr("posts.created_at < ?", cutoff)).
 		Returning(querytest.TPostUserID)
 

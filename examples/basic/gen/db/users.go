@@ -78,6 +78,12 @@ func (c usersIDCol) In(vals ...int64) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c usersIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
+func (c usersIDCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+
 type usersEmailCol struct{}
 
 func (usersEmailCol) SQLName() string    { return "email" }
@@ -106,6 +112,11 @@ func (c usersEmailCol) In(vals ...string) query.Expr {
 
 func (c usersEmailCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c usersEmailCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
+func (c usersEmailCol) Set(v string) query.Assignment   { return query.Assign(c, v) }
+func (c usersEmailCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersEmailCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
 type usersNameCol struct{}
 
@@ -135,6 +146,11 @@ func (c usersNameCol) In(vals ...string) query.Expr {
 
 func (c usersNameCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c usersNameCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
+func (c usersNameCol) Set(v string) query.Assignment   { return query.Assign(c, v) }
+func (c usersNameCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersNameCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
 type usersStatusCol struct{}
 
@@ -162,6 +178,12 @@ func (c usersStatusCol) In(vals ...models.UserStatus) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c usersStatusCol) Set(v models.UserStatus) query.Assignment { return query.Assign(c, v) }
+func (c usersStatusCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersStatusCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+
 type usersTagsCol struct{}
 
 func (usersTagsCol) SQLName() string    { return "tags" }
@@ -173,8 +195,14 @@ func (c usersTagsCol) EqCol(other query.Column) query.Expr { return query.EqCol(
 func (c usersTagsCol) Ne(v []string) query.Expr            { return query.Ne(c, v) }
 func (c usersTagsCol) NeCol(other query.Column) query.Expr { return query.NeCol(c, other) }
 func (c usersTagsCol) Contains(v string) query.Expr        { return query.Contains(c, v) }
-func (c usersTagsCol) IsNull() query.Expr                  { return query.IsNull(c) }
-func (c usersTagsCol) NotNull() query.Expr                 { return query.NotNull(c) }
+func (c usersTagsCol) Set(v []string) query.Assignment     { return query.Assign(c, v) }
+func (c usersTagsCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersTagsCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+func (c usersTagsCol) SetNull() query.Assignment     { return query.Assign(c, nil) }
+func (c usersTagsCol) IsNull() query.Expr            { return query.IsNull(c) }
+func (c usersTagsCol) NotNull() query.Expr           { return query.NotNull(c) }
 
 type usersMetaCol struct{}
 
@@ -194,8 +222,14 @@ func (c usersMetaCol) In(vals ...json.RawMessage) query.Expr {
 	return query.In(c, args...)
 }
 
-func (c usersMetaCol) IsNull() query.Expr  { return query.IsNull(c) }
-func (c usersMetaCol) NotNull() query.Expr { return query.NotNull(c) }
+func (c usersMetaCol) Set(v json.RawMessage) query.Assignment { return query.Assign(c, v) }
+func (c usersMetaCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersMetaCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+func (c usersMetaCol) SetNull() query.Assignment     { return query.Assign(c, nil) }
+func (c usersMetaCol) IsNull() query.Expr            { return query.IsNull(c) }
+func (c usersMetaCol) NotNull() query.Expr           { return query.NotNull(c) }
 
 type usersBalanceCol struct{}
 
@@ -223,8 +257,14 @@ func (c usersBalanceCol) In(vals ...decimal.Decimal) query.Expr {
 	return query.In(c, args...)
 }
 
-func (c usersBalanceCol) IsNull() query.Expr  { return query.IsNull(c) }
-func (c usersBalanceCol) NotNull() query.Expr { return query.NotNull(c) }
+func (c usersBalanceCol) Set(v decimal.Decimal) query.Assignment { return query.Assign(c, v) }
+func (c usersBalanceCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersBalanceCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+func (c usersBalanceCol) SetNull() query.Assignment     { return query.Assign(c, nil) }
+func (c usersBalanceCol) IsNull() query.Expr            { return query.IsNull(c) }
+func (c usersBalanceCol) NotNull() query.Expr           { return query.NotNull(c) }
 
 type usersExternalIDCol struct{}
 
@@ -252,8 +292,14 @@ func (c usersExternalIDCol) In(vals ...uuid.UUID) query.Expr {
 	return query.In(c, args...)
 }
 
-func (c usersExternalIDCol) IsNull() query.Expr  { return query.IsNull(c) }
-func (c usersExternalIDCol) NotNull() query.Expr { return query.NotNull(c) }
+func (c usersExternalIDCol) Set(v uuid.UUID) query.Assignment { return query.Assign(c, v) }
+func (c usersExternalIDCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersExternalIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+func (c usersExternalIDCol) SetNull() query.Assignment     { return query.Assign(c, nil) }
+func (c usersExternalIDCol) IsNull() query.Expr            { return query.IsNull(c) }
+func (c usersExternalIDCol) NotNull() query.Expr           { return query.NotNull(c) }
 
 type usersLastLoginAtCol struct{}
 
@@ -281,8 +327,14 @@ func (c usersLastLoginAtCol) In(vals ...time.Time) query.Expr {
 	return query.In(c, args...)
 }
 
-func (c usersLastLoginAtCol) IsNull() query.Expr  { return query.IsNull(c) }
-func (c usersLastLoginAtCol) NotNull() query.Expr { return query.NotNull(c) }
+func (c usersLastLoginAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
+func (c usersLastLoginAtCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersLastLoginAtCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
+func (c usersLastLoginAtCol) SetNull() query.Assignment     { return query.Assign(c, nil) }
+func (c usersLastLoginAtCol) IsNull() query.Expr            { return query.IsNull(c) }
+func (c usersLastLoginAtCol) NotNull() query.Expr           { return query.NotNull(c) }
 
 type usersUpdatedAtCol struct{}
 
@@ -309,3 +361,9 @@ func (c usersUpdatedAtCol) In(vals ...time.Time) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersUpdatedAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
+func (c usersUpdatedAtCol) SetExpr(sql string, args ...any) query.Assignment {
+	return query.AssignExpr(c, sql, args...)
+}
+func (c usersUpdatedAtCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }

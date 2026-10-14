@@ -73,3 +73,33 @@ func TestSelectRaw(t *testing.T) {
 		t.Fatalf("args = %v", args)
 	}
 }
+
+func TestTypedAssignments(t *testing.T) {
+	sql, args := db.Insert(db.Users).
+		Set(
+			db.Users.Email.Set("a@b.com"),
+			db.Users.Name.Set("alice"),
+			db.Users.Status.Set(models.UserStatusActive),
+		).
+		OnConflict(db.Users.Email).
+		DoUpdate(db.Users.Name.SetExcluded(), db.Users.UpdatedAt.SetExpr("now()")).
+		Build()
+
+	want := "INSERT INTO users (email, name, status) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, updated_at = now()"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 3 {
+		t.Fatalf("args = %v", args)
+	}
+
+	sql, _ = db.Update(db.Users).
+		Set(db.Users.LastLoginAt.SetNull(), db.Users.Name.Set("bob")).
+		Where(db.Users.ID.Eq(1)).
+		Build()
+
+	want = "UPDATE users SET last_login_at = $1, name = $2 WHERE users.id = $3"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}

@@ -73,6 +73,28 @@ func TestSmoke(t *testing.T) {
 		t.Fatalf("all = %q", all)
 	}
 
+	ins, _ := db.Insert(db.Users).Set(db.Users.Email.Set("a@b.c"), db.Users.Name.Set("n")).Build()
+	if want := "INSERT INTO users (email, name) VALUES ($1, $2)"; ins != want {
+		t.Fatalf("insert = %q", ins)
+	}
+
+	upd, _ := db.Update(db.Users).
+		Set(db.Users.Name.Set("x"), db.Users.ExternalID.SetNull(), db.Users.UpdatedAt.SetExpr("NOW()")).
+		Where(db.Users.ID.Eq(1)).
+		Build()
+	if want := "UPDATE users SET name = $1, external_id = $2, updated_at = NOW() WHERE users.id = $3"; upd != want {
+		t.Fatalf("update = %q", upd)
+	}
+
+	ups, _ := db.Insert(db.Users).
+		Set(db.Users.ID.Set(1), db.Users.Name.Set("n")).
+		OnConflict(db.Users.ID).
+		DoUpdate(db.Users.Name.SetExcluded()).
+		Build()
+	if want := "INSERT INTO users (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name"; ups != want {
+		t.Fatalf("upsert = %q", ups)
+	}
+
 	except, _ := db.Select(db.Posts.AllExcept(db.Posts.Title, db.Posts.Published)...).From(db.Posts).Build()
 	wantExcept := "SELECT posts.id, posts.user_id, posts.created_at FROM posts"
 	if except != wantExcept {
@@ -92,6 +114,25 @@ func TestSmoke(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go test ./...: %v\n%s", err, out)
+	}
+
+	if err := os.MkdirAll(filepath.Join(modRoot, "bad"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(modRoot, "bad", "bad.go"), `package bad
+
+import "example.com/app/gen/db"
+
+var _ = db.Users.ID.Set("not an int")
+`)
+	cmd = exec.Command("go", "build", "./bad")
+	cmd.Dir = modRoot
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("a setter with the wrong Go type must not compile")
+	}
+	if !strings.Contains(string(out), "cannot use") {
+		t.Fatalf("unexpected build error:\n%s", out)
 	}
 }
 
@@ -134,6 +175,14 @@ func TestGenerateUsersFileContents(t *testing.T) {
 		"func (c usersEmailCol) ILike(pattern string)",
 		"func (c usersTagsCol) Contains(v string)",
 		"func (t usersTable) AllExcept(cols ...query.Column) []query.Column {\n\treturn query.Except(t.All(), cols...)\n}",
+		"func (c usersIDCol) Set(v int64) query.Assignment",
+		"func (c usersEmailCol) Set(v string) query.Assignment",
+		"func (c usersStatusCol) Set(v models.UserStatus) query.Assignment",
+		"func (c usersTagsCol) Set(v []string) query.Assignment",
+		"func (c usersExternalIDCol) Set(v uuid.UUID) query.Assignment",
+		"func (c usersIDCol) SetExpr(sql string, args ...any) query.Assignment",
+		"func (c usersIDCol) SetExcluded() query.Assignment",
+		"func (c usersExternalIDCol) SetNull() query.Assignment",
 		"func (t usersTable) Insert()",
 		"func (t usersTable) All() []query.Column {\n\treturn []query.Column{t.ID, t.Email, t.Name, t.Status, t.Tags, t.Meta, t.Balance, t.ExternalID, t.LastLoginAt, t.UpdatedAt}\n}",
 	} {
@@ -147,6 +196,8 @@ func TestGenerateUsersFileContents(t *testing.T) {
 		"func (c usersMetaCol) Gt(",
 		"func (c usersIDCol) IsNull(",
 		"func (c usersEmailCol) NotNull(",
+		"func (c usersIDCol) SetNull(",
+		"func (c usersEmailCol) SetNull(",
 	} {
 		if strings.Contains(tableBody, bad) {
 			t.Fatalf("users.go should not contain %q", bad)
