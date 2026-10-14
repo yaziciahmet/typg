@@ -22,10 +22,9 @@ func TestGenerateCompile(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(modRoot, "go.mod"), `module example.com/app
 
-go 1.24.0
+go 1.27.0
 
 require (
-	github.com/google/uuid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 )
 `)
@@ -66,6 +65,18 @@ func TestSmoke(t *testing.T) {
 	}
 	if len(args) != 1 {
 		t.Fatalf("args = %v", args)
+	}
+
+	all, _ := db.Select(db.Posts.All()...).From(db.Posts).Build()
+	want := "SELECT posts.id, posts.user_id, posts.title, posts.published, posts.created_at FROM posts"
+	if all != want {
+		t.Fatalf("all = %q", all)
+	}
+
+	except, _ := db.Select(db.Posts.AllExcept(db.Posts.Title, db.Posts.Published)...).From(db.Posts).Build()
+	wantExcept := "SELECT posts.id, posts.user_id, posts.created_at FROM posts"
+	if except != wantExcept {
+		t.Fatalf("except = %q", except)
 	}
 }
 `)
@@ -122,7 +133,9 @@ func TestGenerateUsersFileContents(t *testing.T) {
 		"func (c usersStatusCol) In(vals ...models.UserStatus)",
 		"func (c usersEmailCol) ILike(pattern string)",
 		"func (c usersTagsCol) Contains(v string)",
+		"func (t usersTable) AllExcept(cols ...query.Column) []query.Column {\n\treturn query.Except(t.All(), cols...)\n}",
 		"func (t usersTable) Insert()",
+		"func (t usersTable) All() []query.Column {\n\treturn []query.Column{t.ID, t.Email, t.Name, t.Status, t.Tags, t.Meta, t.Balance, t.ExternalID, t.LastLoginAt, t.UpdatedAt}\n}",
 	} {
 		if !strings.Contains(tableBody, want) {
 			t.Fatalf("users.go missing %q\n%s", want, tableBody)

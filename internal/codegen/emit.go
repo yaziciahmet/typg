@@ -41,6 +41,17 @@ func emitTable(cfg Config, table schema.Table) []byte {
 	fmt.Fprintf(&b, "func (%s) SQLName() string { return %q }\n", tStruct, table.Name)
 	fmt.Fprintf(&b, "func (%s) Alias() string { return %q }\n\n", tStruct, table.Name)
 
+	fmt.Fprintf(&b, "func (t %s) All() []query.Column {\n\treturn []query.Column{", tStruct)
+	for i, col := range table.Columns {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "t.%s", columnField(col.Name))
+	}
+	b.WriteString("}\n}\n\n")
+
+	fmt.Fprintf(&b, "func (t %s) AllExcept(cols ...query.Column) []query.Column {\n\treturn query.Except(t.All(), cols...)\n}\n\n", tStruct)
+
 	fmt.Fprintf(&b, "func (t %s) Insert() *query.InsertBuilder { return query.Insert(t) }\n", tStruct)
 	fmt.Fprintf(&b, "func (t %s) Update() *query.UpdateBuilder { return query.Update(t) }\n", tStruct)
 	fmt.Fprintf(&b, "func (t %s) Delete() *query.DeleteBuilder { return query.Delete(t) }\n\n", tStruct)
@@ -299,9 +310,18 @@ func (i *imports) addGoType(gt schema.GoType) {
 			i.add("time")
 		}
 	default:
+		if isStdImport(gt.ImportPath) {
+			i.add(gt.ImportPath)
+			return
+		}
 		alias := importName(gt.ImportPath)
 		i.third[alias] = gt.ImportPath
 	}
+}
+
+func isStdImport(path string) bool {
+	first, _, _ := strings.Cut(path, "/")
+	return !strings.Contains(first, ".")
 }
 
 func (i *imports) typeExpr(gt schema.GoType) string {

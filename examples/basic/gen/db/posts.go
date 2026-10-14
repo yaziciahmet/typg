@@ -26,6 +26,14 @@ var Posts = postsTable{
 func (postsTable) SQLName() string { return "posts" }
 func (postsTable) Alias() string   { return "posts" }
 
+func (t postsTable) All() []query.Column {
+	return []query.Column{t.ID, t.UserID, t.Title, t.Published, t.CreatedAt}
+}
+
+func (t postsTable) AllExcept(cols ...query.Column) []query.Column {
+	return query.Except(t.All(), cols...)
+}
+
 func (t postsTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t postsTable) Update() *query.UpdateBuilder { return query.Update(t) }
 func (t postsTable) Delete() *query.DeleteBuilder { return query.Delete(t) }

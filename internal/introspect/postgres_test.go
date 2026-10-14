@@ -86,8 +86,12 @@ func TestPostgresIntrospect(t *testing.T) {
 					if col.Go.Name != "[]string" || !col.Nullable {
 						t.Fatalf("tags go type = %+v nullable=%v", col.Go, col.Nullable)
 					}
+				case "id":
+					if col.Go.Name != "int64" {
+						t.Fatalf("users.id go type = %+v", col.Go)
+					}
 				case "external_id":
-					if col.Go.Name != "uuid.UUID" {
+					if col.Go.Name != "uuid.UUID" || col.Go.ImportPath != "uuid" {
 						t.Fatalf("external_id go type = %+v", col.Go)
 					}
 				case "meta":
@@ -108,6 +112,28 @@ func TestPostgresIntrospect(t *testing.T) {
 	}
 	if usersCols != 10 {
 		t.Fatalf("users columns = %d", usersCols)
+	}
+
+	for _, table := range db.Tables {
+		if table.Name != "posts" {
+			continue
+		}
+		for _, col := range table.Columns {
+			switch col.Name {
+			case "user_id":
+				if col.Go.Name != "int64" {
+					t.Fatalf("posts.user_id go type = %+v", col.Go)
+				}
+			case "views":
+				if col.Go.Name != "int32" {
+					t.Fatalf("posts.views go type = %+v", col.Go)
+				}
+			case "rating":
+				if col.Go.Name != "int16" || !col.Nullable {
+					t.Fatalf("posts.rating go type = %+v nullable=%v", col.Go, col.Nullable)
+				}
+			}
+		}
 	}
 
 	// sanity: mapped types compile

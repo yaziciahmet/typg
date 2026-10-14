@@ -17,12 +17,19 @@ func TestResolveType(t *testing.T) {
 		want   schema.GoType
 		wantOK bool
 	}{
+		{"int2", schema.GoType{Name: "int16"}, true},
+		{"int4", schema.GoType{Name: "int32"}, true},
 		{"int8", schema.GoType{Name: "int64"}, true},
+		{"smallserial", schema.GoType{Name: "int16"}, true},
+		{"serial", schema.GoType{Name: "int32"}, true},
+		{"bigserial", schema.GoType{Name: "int64"}, true},
 		{"bool", schema.GoType{Name: "bool"}, true},
 		{"text", schema.GoType{Name: "string"}, true},
 		{"_text", schema.GoType{Name: "[]string"}, true},
+		{"_int4", schema.GoType{Name: "[]int32"}, true},
 		{"_int8", schema.GoType{Name: "[]int64"}, true},
-		{"_uuid", schema.GoType{Name: "[]uuid.UUID", ImportPath: "github.com/google/uuid"}, true},
+		{"uuid", schema.GoType{Name: "uuid.UUID", ImportPath: "uuid"}, true},
+		{"_uuid", schema.GoType{Name: "[]uuid.UUID", ImportPath: "uuid"}, true},
 		{"timestamptz", schema.GoType{Name: "time.Time"}, true},
 		{"user_status", schema.GoType{Name: "UserStatus", IsEnum: true}, true},
 		{"jsonb", schema.GoType{Name: "json.RawMessage", ImportPath: "encoding/json"}, true},

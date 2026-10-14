@@ -21,7 +21,7 @@ func Database() schema.Database {
 					{Name: "tags", PGType: "_text", Nullable: true, Go: schema.GoType{Name: "[]string"}},
 					{Name: "meta", PGType: "jsonb", Nullable: true, Go: schema.GoType{Name: "json.RawMessage", ImportPath: "encoding/json"}},
 					{Name: "balance", PGType: "numeric", Nullable: true, Go: schema.GoType{Name: "decimal.Decimal", ImportPath: "github.com/shopspring/decimal"}},
-					{Name: "external_id", PGType: "uuid", Nullable: true, Go: schema.GoType{Name: "uuid.UUID", ImportPath: "github.com/google/uuid"}},
+					{Name: "external_id", PGType: "uuid", Nullable: true, Go: schema.GoType{Name: "uuid.UUID", ImportPath: "uuid"}},
 					{Name: "last_login_at", PGType: "timestamptz", Nullable: true, Go: schema.GoType{Name: "time.Time"}},
 					{Name: "updated_at", PGType: "timestamptz", Go: schema.GoType{Name: "time.Time"}},
 				},
