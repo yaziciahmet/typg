@@ -7,7 +7,7 @@ type DeleteBuilder struct {
 	suffix  []fragment
 	table   Table
 	wheres  []Expr
-	returns []fragment
+	returns []Column
 }
 
 // Delete starts a DELETE from table.
@@ -35,9 +35,7 @@ func (b *DeleteBuilder) Where(e Expr) *DeleteBuilder {
 
 // Returning adds a RETURNING clause.
 func (b *DeleteBuilder) Returning(cols ...Column) *DeleteBuilder {
-	for _, col := range cols {
-		b.returns = append(b.returns, columnFrag{col: col})
-	}
+	b.returns = append(b.returns, cols...)
 	return b
 }
 

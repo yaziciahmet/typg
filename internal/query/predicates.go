@@ -89,7 +89,7 @@ func (e inExpr) compile(c *Compiler) {
 		}
 		return
 	}
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	if e.neg {
 		c.Write(" NOT IN (")
 	} else {
@@ -99,7 +99,7 @@ func (e inExpr) compile(c *Compiler) {
 		if i > 0 {
 			c.Write(", ")
 		}
-		c.Write(c.Arg(v))
+		writeArg(c, v)
 	}
 	c.Write(")")
 }
@@ -121,77 +121,67 @@ func ILike(col Column, pattern string) Expr {
 }
 
 func (e likeExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	if e.ilike {
 		c.Write(" ILIKE ")
 	} else {
 		c.Write(" LIKE ")
 	}
-	c.Write(c.Arg(e.pattern))
+	writeArg(c, e.pattern)
 }
 
 type compareExpr struct {
-	left     Column
-	op       string
-	rightCol Column
-	rightVal any
-	isCol    bool
+	left  Column
+	op    string
+	right any
 }
 
 func compareVal(col Column, op string, val any) Expr {
-	return compareExpr{left: col, op: op, rightVal: val}
-}
-
-func compareCol(col Column, op string, other Column) Expr {
-	return compareExpr{left: col, op: op, rightCol: other, isCol: true}
+	return compareExpr{left: col, op: op, right: val}
 }
 
 // Eq builds col = val.
 func Eq(col Column, val any) Expr { return compareVal(col, "=", val) }
 
 // EqCol builds col = other.
-func EqCol(col, other Column) Expr { return compareCol(col, "=", other) }
+func EqCol(col, other Column) Expr { return compareVal(col, "=", other) }
 
 // Ne builds col != val.
 func Ne(col Column, val any) Expr { return compareVal(col, "!=", val) }
 
 // NeCol builds col != other.
-func NeCol(col, other Column) Expr { return compareCol(col, "!=", other) }
+func NeCol(col, other Column) Expr { return compareVal(col, "!=", other) }
 
 // Gt builds col > val.
 func Gt(col Column, val any) Expr { return compareVal(col, ">", val) }
 
 // GtCol builds col > other.
-func GtCol(col, other Column) Expr { return compareCol(col, ">", other) }
+func GtCol(col, other Column) Expr { return compareVal(col, ">", other) }
 
 // Gte builds col >= val.
 func Gte(col Column, val any) Expr { return compareVal(col, ">=", val) }
 
 // GteCol builds col >= other.
-func GteCol(col, other Column) Expr { return compareCol(col, ">=", other) }
+func GteCol(col, other Column) Expr { return compareVal(col, ">=", other) }
 
 // Lt builds col < val.
 func Lt(col Column, val any) Expr { return compareVal(col, "<", val) }
 
 // LtCol builds col < other.
-func LtCol(col, other Column) Expr { return compareCol(col, "<", other) }
+func LtCol(col, other Column) Expr { return compareVal(col, "<", other) }
 
 // Lte builds col <= val.
 func Lte(col Column, val any) Expr { return compareVal(col, "<=", val) }
 
 // LteCol builds col <= other.
-func LteCol(col, other Column) Expr { return compareCol(col, "<=", other) }
+func LteCol(col, other Column) Expr { return compareVal(col, "<=", other) }
 
 func (e compareExpr) compile(c *Compiler) {
-	writeExpr(c, e.left)
+	writeOperand(c, e.left)
 	c.Write(" ")
 	c.Write(e.op)
 	c.Write(" ")
-	if e.isCol {
-		writeExpr(c, e.rightCol)
-	} else {
-		c.Write(c.Arg(e.rightVal))
-	}
+	writeArg(c, e.right)
 }
 
 type nullExpr struct {
@@ -206,7 +196,7 @@ func IsNull(col Column) Expr { return nullExpr{col: col} }
 func NotNull(col Column) Expr { return nullExpr{col: col, neg: true} }
 
 func (e nullExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	if e.neg {
 		c.Write(" IS NOT NULL")
 	} else {
@@ -225,9 +215,9 @@ func Contains(col Column, val any) Expr {
 }
 
 func (e containsExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	c.Write(" @> ARRAY[")
-	c.Write(c.Arg(e.val))
+	writeArg(c, e.val)
 	c.Write("]")
 }
 
@@ -255,7 +245,7 @@ func Between(col Column, lo, hi any) Expr {
 }
 
 func (e betweenExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	c.Write(" BETWEEN ")
 	writeArg(c, e.lo)
 	c.Write(" AND ")
@@ -273,9 +263,9 @@ func EqAny(col Column, values any) Expr {
 }
 
 func (e eqAnyExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	c.Write(" = ANY(")
-	c.Write(c.Arg(e.values))
+	writeArg(c, e.values)
 	c.Write(")")
 }
 
@@ -303,7 +293,7 @@ func InSelect(col Column, sub *SelectBuilder) Expr {
 }
 
 func (e inSelectExpr) compile(c *Compiler) {
-	writeExpr(c, e.col)
+	writeOperand(c, e.col)
 	c.Write(" IN (")
 	e.sub.compile(c)
 	c.Write(")")

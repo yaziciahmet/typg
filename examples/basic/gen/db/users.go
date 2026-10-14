@@ -28,16 +28,16 @@ type usersTable struct {
 func newUsersTable(alias string) usersTable {
 	return usersTable{
 		alias:       alias,
-		ID:          usersIDCol{alias: alias},
-		Email:       usersEmailCol{alias: alias},
-		Name:        usersNameCol{alias: alias},
-		Status:      usersStatusCol{alias: alias},
-		Tags:        usersTagsCol{alias: alias},
-		Meta:        usersMetaCol{alias: alias},
-		Balance:     usersBalanceCol{alias: alias},
-		ExternalID:  usersExternalIDCol{alias: alias},
-		LastLoginAt: usersLastLoginAtCol{alias: alias},
-		UpdatedAt:   usersUpdatedAtCol{alias: alias},
+		ID:          usersIDCol{qualifier: alias + ".id"},
+		Email:       usersEmailCol{qualifier: alias + ".email"},
+		Name:        usersNameCol{qualifier: alias + ".name"},
+		Status:      usersStatusCol{qualifier: alias + ".status"},
+		Tags:        usersTagsCol{qualifier: alias + ".tags"},
+		Meta:        usersMetaCol{qualifier: alias + ".meta"},
+		Balance:     usersBalanceCol{qualifier: alias + ".balance"},
+		ExternalID:  usersExternalIDCol{qualifier: alias + ".external_id"},
+		LastLoginAt: usersLastLoginAtCol{qualifier: alias + ".last_login_at"},
+		UpdatedAt:   usersUpdatedAtCol{qualifier: alias + ".updated_at"},
 	}
 }
 
@@ -59,10 +59,10 @@ func (t usersTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t usersTable) Update() *query.UpdateBuilder { return query.Update(t) }
 func (t usersTable) Delete() *query.DeleteBuilder { return query.Delete(t) }
 
-type usersIDCol struct{ alias string }
+type usersIDCol struct{ qualifier string }
 
 func (usersIDCol) SQLName() string     { return "id" }
-func (c usersIDCol) Qualifier() string { return c.alias + ".id" }
+func (c usersIDCol) Qualifier() string { return c.qualifier }
 
 func (c usersIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
@@ -102,10 +102,10 @@ func (c usersIDCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersEmailCol struct{ alias string }
+type usersEmailCol struct{ qualifier string }
 
 func (usersEmailCol) SQLName() string     { return "email" }
-func (c usersEmailCol) Qualifier() string { return c.alias + ".email" }
+func (c usersEmailCol) Qualifier() string { return c.qualifier }
 
 func (c usersEmailCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersEmailCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
@@ -147,10 +147,10 @@ func (c usersEmailCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersEmailCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersNameCol struct{ alias string }
+type usersNameCol struct{ qualifier string }
 
 func (usersNameCol) SQLName() string     { return "name" }
-func (c usersNameCol) Qualifier() string { return c.alias + ".name" }
+func (c usersNameCol) Qualifier() string { return c.qualifier }
 
 func (c usersNameCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersNameCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
@@ -192,10 +192,10 @@ func (c usersNameCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersNameCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersStatusCol struct{ alias string }
+type usersStatusCol struct{ qualifier string }
 
 func (usersStatusCol) SQLName() string     { return "status" }
-func (c usersStatusCol) Qualifier() string { return c.alias + ".status" }
+func (c usersStatusCol) Qualifier() string { return c.qualifier }
 
 func (c usersStatusCol) As(alias string) query.Column                { return query.ColumnAs(c, alias) }
 func (c usersStatusCol) Eq(v models.UserStatus) query.Expr           { return query.Eq(c, v) }
@@ -233,10 +233,10 @@ func (c usersStatusCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersStatusCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersTagsCol struct{ alias string }
+type usersTagsCol struct{ qualifier string }
 
 func (usersTagsCol) SQLName() string     { return "tags" }
-func (c usersTagsCol) Qualifier() string { return c.alias + ".tags" }
+func (c usersTagsCol) Qualifier() string { return c.qualifier }
 
 func (c usersTagsCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c usersTagsCol) Eq(v []string) query.Expr            { return query.Eq(c, v) }
@@ -253,10 +253,10 @@ func (c usersTagsCol) SetNull() query.Assignment     { return query.Assign(c, ni
 func (c usersTagsCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersTagsCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersMetaCol struct{ alias string }
+type usersMetaCol struct{ qualifier string }
 
 func (usersMetaCol) SQLName() string     { return "meta" }
-func (c usersMetaCol) Qualifier() string { return c.alias + ".meta" }
+func (c usersMetaCol) Qualifier() string { return c.qualifier }
 
 func (c usersMetaCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c usersMetaCol) Eq(v json.RawMessage) query.Expr     { return query.Eq(c, v) }
@@ -290,10 +290,10 @@ func (c usersMetaCol) SetNull() query.Assignment     { return query.Assign(c, ni
 func (c usersMetaCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersMetaCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersBalanceCol struct{ alias string }
+type usersBalanceCol struct{ qualifier string }
 
 func (usersBalanceCol) SQLName() string     { return "balance" }
-func (c usersBalanceCol) Qualifier() string { return c.alias + ".balance" }
+func (c usersBalanceCol) Qualifier() string { return c.qualifier }
 
 func (c usersBalanceCol) As(alias string) query.Column              { return query.ColumnAs(c, alias) }
 func (c usersBalanceCol) Eq(v decimal.Decimal) query.Expr           { return query.Eq(c, v) }
@@ -336,10 +336,10 @@ func (c usersBalanceCol) SetNull() query.Assignment     { return query.Assign(c,
 func (c usersBalanceCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersBalanceCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersExternalIDCol struct{ alias string }
+type usersExternalIDCol struct{ qualifier string }
 
 func (usersExternalIDCol) SQLName() string     { return "external_id" }
-func (c usersExternalIDCol) Qualifier() string { return c.alias + ".external_id" }
+func (c usersExternalIDCol) Qualifier() string { return c.qualifier }
 
 func (c usersExternalIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersExternalIDCol) Eq(v uuid.UUID) query.Expr            { return query.Eq(c, v) }
@@ -382,10 +382,10 @@ func (c usersExternalIDCol) SetNull() query.Assignment     { return query.Assign
 func (c usersExternalIDCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersExternalIDCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersLastLoginAtCol struct{ alias string }
+type usersLastLoginAtCol struct{ qualifier string }
 
 func (usersLastLoginAtCol) SQLName() string     { return "last_login_at" }
-func (c usersLastLoginAtCol) Qualifier() string { return c.alias + ".last_login_at" }
+func (c usersLastLoginAtCol) Qualifier() string { return c.qualifier }
 
 func (c usersLastLoginAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersLastLoginAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }
@@ -428,10 +428,10 @@ func (c usersLastLoginAtCol) SetNull() query.Assignment     { return query.Assig
 func (c usersLastLoginAtCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersLastLoginAtCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersUpdatedAtCol struct{ alias string }
+type usersUpdatedAtCol struct{ qualifier string }
 
 func (usersUpdatedAtCol) SQLName() string     { return "updated_at" }
-func (c usersUpdatedAtCol) Qualifier() string { return c.alias + ".updated_at" }
+func (c usersUpdatedAtCol) Qualifier() string { return c.qualifier }
 
 func (c usersUpdatedAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersUpdatedAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }

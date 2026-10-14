@@ -161,3 +161,66 @@ func TestAliasedTableInStatements(t *testing.T) {
 		t.Fatalf("self join = %q", sql)
 	}
 }
+
+func TestColumnValuesRenderAsColumnsInEveryValuePosition(t *testing.T) {
+	sql, args := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.Eq(querytest.TUsersID, querytest.TUsersName)).
+		Where(query.Gt(querytest.TUsersID, query.Count())).
+		Where(query.In(querytest.TUsersID, querytest.TUsersName, int64(2))).
+		Build()
+
+	want := "SELECT users.id FROM users WHERE users.id = users.name AND users.id > count(*) AND users.id IN (users.name, $1)"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 1 || args[0] != int64(2) {
+		t.Fatalf("args = %v", args)
+	}
+
+	sql, args = query.Update(querytest.TUsers).
+		Set(query.Assign(querytest.TUsersName, querytest.TUsersEmail)).
+		Build()
+	if want := "UPDATE users SET name = users.email"; sql != want || len(args) != 0 {
+		t.Fatalf("update = %q args=%v", sql, args)
+	}
+}
+
+func TestRawColumnOperandIsParenthesizedButHelpersAreNot(t *testing.T) {
+	sql, _ := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.Eq(query.NewRawCol("a > b"), true)).
+		Where(query.Gt(query.Sum(querytest.TUsersID), int64(1))).
+		Where(query.Eq(querytest.TUsersName, query.NewRawCol("lower(?)", querytest.TUsersEmail))).
+		Build()
+
+	want := "SELECT users.id FROM users WHERE (a > b) = $1 AND sum(users.id) > $2 AND users.name = (lower(users.email))"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}
+
+func TestExceptKeepsOtherRawColumns(t *testing.T) {
+	a := query.CountOf(querytest.TUsersID)
+	b := query.CountOf(querytest.TUsersName)
+
+	got := query.Except([]query.Column{a, b, querytest.TUsersID}, a)
+	if len(got) != 2 || got[0] != query.Column(b) || got[1].Qualifier() != "users.id" {
+		t.Fatalf("got = %v", got)
+	}
+}
+
+func TestInsertWithoutAssignmentsUsesDefaultValues(t *testing.T) {
+	sql, args := query.Insert(querytest.TUsers).Returning(querytest.TUsersID).Build()
+	if want := "INSERT INTO users DEFAULT VALUES RETURNING users.id"; sql != want || len(args) != 0 {
+		t.Fatalf("sql = %q args=%v", sql, args)
+	}
+}
+
+func TestOnConflictWithoutTarget(t *testing.T) {
+	sql, _ := query.Insert(querytest.TUsers).
+		Set(query.Assign(querytest.TUsersName, "a")).
+		OnConflict().DoNothing().
+		Build()
+	if want := "INSERT INTO users (name) VALUES ($1) ON CONFLICT DO NOTHING"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}

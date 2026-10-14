@@ -19,11 +19,11 @@ type postsTable struct {
 func newPostsTable(alias string) postsTable {
 	return postsTable{
 		alias:     alias,
-		ID:        postsIDCol{alias: alias},
-		UserID:    postsUserIDCol{alias: alias},
-		Title:     postsTitleCol{alias: alias},
-		Published: postsPublishedCol{alias: alias},
-		CreatedAt: postsCreatedAtCol{alias: alias},
+		ID:        postsIDCol{qualifier: alias + ".id"},
+		UserID:    postsUserIDCol{qualifier: alias + ".user_id"},
+		Title:     postsTitleCol{qualifier: alias + ".title"},
+		Published: postsPublishedCol{qualifier: alias + ".published"},
+		CreatedAt: postsCreatedAtCol{qualifier: alias + ".created_at"},
 	}
 }
 
@@ -45,10 +45,10 @@ func (t postsTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t postsTable) Update() *query.UpdateBuilder { return query.Update(t) }
 func (t postsTable) Delete() *query.DeleteBuilder { return query.Delete(t) }
 
-type postsIDCol struct{ alias string }
+type postsIDCol struct{ qualifier string }
 
 func (postsIDCol) SQLName() string     { return "id" }
-func (c postsIDCol) Qualifier() string { return c.alias + ".id" }
+func (c postsIDCol) Qualifier() string { return c.qualifier }
 
 func (c postsIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
@@ -88,10 +88,10 @@ func (c postsIDCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c postsIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsUserIDCol struct{ alias string }
+type postsUserIDCol struct{ qualifier string }
 
 func (postsUserIDCol) SQLName() string     { return "user_id" }
-func (c postsUserIDCol) Qualifier() string { return c.alias + ".user_id" }
+func (c postsUserIDCol) Qualifier() string { return c.qualifier }
 
 func (c postsUserIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsUserIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
@@ -131,10 +131,10 @@ func (c postsUserIDCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c postsUserIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsTitleCol struct{ alias string }
+type postsTitleCol struct{ qualifier string }
 
 func (postsTitleCol) SQLName() string     { return "title" }
-func (c postsTitleCol) Qualifier() string { return c.alias + ".title" }
+func (c postsTitleCol) Qualifier() string { return c.qualifier }
 
 func (c postsTitleCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsTitleCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
@@ -176,10 +176,10 @@ func (c postsTitleCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c postsTitleCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsPublishedCol struct{ alias string }
+type postsPublishedCol struct{ qualifier string }
 
 func (postsPublishedCol) SQLName() string     { return "published" }
-func (c postsPublishedCol) Qualifier() string { return c.alias + ".published" }
+func (c postsPublishedCol) Qualifier() string { return c.qualifier }
 
 func (c postsPublishedCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c postsPublishedCol) Eq(v bool) query.Expr                { return query.Eq(c, v) }
@@ -210,10 +210,10 @@ func (c postsPublishedCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c postsPublishedCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsCreatedAtCol struct{ alias string }
+type postsCreatedAtCol struct{ qualifier string }
 
 func (postsCreatedAtCol) SQLName() string     { return "created_at" }
-func (c postsCreatedAtCol) Qualifier() string { return c.alias + ".created_at" }
+func (c postsCreatedAtCol) Qualifier() string { return c.qualifier }
 
 func (c postsCreatedAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsCreatedAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }

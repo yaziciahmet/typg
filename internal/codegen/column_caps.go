@@ -15,7 +15,7 @@ type colCaps struct {
 
 func columnCapabilities(col schema.Column) colCaps {
 	gt := col.Go
-	if strings.HasPrefix(gt.Name, "[]") {
+	if strings.HasPrefix(gt.Name, "[]") && gt.Name != "[]byte" {
 		return colCaps{contains: true}
 	}
 	switch gt.Name {

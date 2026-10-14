@@ -8,7 +8,7 @@ type InsertBuilder struct {
 	table    Table
 	sets     []Assignment
 	fromSel  *SelectBuilder
-	returns  []fragment
+	returns  []Column
 	conflict *onConflictClause
 }
 
@@ -43,9 +43,7 @@ func (b *InsertBuilder) SetAny(column string, val any) *InsertBuilder {
 
 // Returning adds a RETURNING clause.
 func (b *InsertBuilder) Returning(cols ...Column) *InsertBuilder {
-	for _, col := range cols {
-		b.returns = append(b.returns, columnFrag{col: col})
-	}
+	b.returns = append(b.returns, cols...)
 	return b
 }
 
@@ -99,10 +97,13 @@ func (b *InsertBuilder) compile(c *Compiler) {
 	compilePrefix(c, b.with, b.prefix)
 	c.Write("INSERT INTO ")
 	tableFrag{table: b.table}.compile(c)
-	if b.fromSel != nil {
+	switch {
+	case b.fromSel != nil:
 		c.Write(" ")
 		b.fromSel.compile(c)
-	} else {
+	case len(b.sets) == 0:
+		c.Write(" DEFAULT VALUES")
+	default:
 		c.Write(" (")
 		for i, s := range b.sets {
 			if i > 0 {
@@ -120,14 +121,17 @@ func (b *InsertBuilder) compile(c *Compiler) {
 		c.Write(")")
 	}
 	if b.conflict != nil {
-		c.Write(" ON CONFLICT (")
-		for i, col := range b.conflict.cols {
-			if i > 0 {
-				c.Write(", ")
+		c.Write(" ON CONFLICT")
+		if len(b.conflict.cols) > 0 {
+			c.Write(" (")
+			for i, col := range b.conflict.cols {
+				if i > 0 {
+					c.Write(", ")
+				}
+				c.Write(col)
 			}
-			c.Write(col)
+			c.Write(")")
 		}
-		c.Write(")")
 		if b.conflict.nothing {
 			c.Write(" DO NOTHING")
 		} else {

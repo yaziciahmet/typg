@@ -20,13 +20,22 @@ type qualColumn struct {
 	column string
 }
 
-// Except removes the columns in drop from cols in place, matched by qualified
-// name, and returns the shortened slice. Do not use cols afterwards.
+// Except removes the columns in drop from cols in place and returns the
+// shortened slice. Columns match by qualified name, raw columns by identity.
+// Do not use cols afterwards.
 func Except(cols []Column, drop ...Column) []Column {
 	return slices.DeleteFunc(cols, func(c Column) bool {
-		q := c.Qualifier()
-		return slices.ContainsFunc(drop, func(d Column) bool { return d.Qualifier() == q })
+		return slices.ContainsFunc(drop, func(d Column) bool { return sameColumn(c, d) })
 	})
+}
+
+func sameColumn(a, b Column) bool {
+	_, rawA := a.(*RawColumn)
+	_, rawB := b.(*RawColumn)
+	if rawA || rawB {
+		return a == b
+	}
+	return a.Qualifier() == b.Qualifier()
 }
 
 // Col references a qualified column outside generated schema (e.g. CTE columns).
@@ -42,9 +51,10 @@ func (q qualColumn) Qualifier() string { return q.table + "." + q.column }
 // GROUP BY, ORDER BY. Write ?? for a literal question mark. Use As to name it
 // in the select list; ORDER BY then refers to the alias.
 type RawColumn struct {
-	sql   string
-	args  []any
-	alias string
+	sql    string
+	args   []any
+	alias  string
+	atomic bool
 }
 
 // NewRawCol builds a raw SQL expression. Prefer As over writing AS in sql.

@@ -9,7 +9,7 @@ type UpdateBuilder struct {
 	sets    []Assignment
 	from    []Table
 	wheres  []Expr
-	returns []fragment
+	returns []Column
 }
 
 // Update starts an UPDATE on table.
@@ -48,9 +48,7 @@ func (b *UpdateBuilder) Where(e Expr) *UpdateBuilder {
 
 // Returning adds a RETURNING clause.
 func (b *UpdateBuilder) Returning(cols ...Column) *UpdateBuilder {
-	for _, col := range cols {
-		b.returns = append(b.returns, columnFrag{col: col})
-	}
+	b.returns = append(b.returns, cols...)
 	return b
 }
 
