@@ -3,10 +3,10 @@
 package models
 
 import (
-	json "encoding/json"
-	uuid "github.com/google/uuid"
+	"encoding/json"
 	decimal "github.com/shopspring/decimal"
 	"time"
+	"uuid"
 )
 
 type Users struct {

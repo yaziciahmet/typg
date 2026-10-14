@@ -3,12 +3,12 @@
 package db
 
 import (
-	json "encoding/json"
-	uuid "github.com/google/uuid"
+	"encoding/json"
 	decimal "github.com/shopspring/decimal"
 	query "github.com/yaziciahmet/typg/examples/basic/gen/db/query"
 	models "github.com/yaziciahmet/typg/examples/basic/gen/models"
 	"time"
+	"uuid"
 )
 
 type usersTable struct {
@@ -39,6 +39,14 @@ var Users = usersTable{
 
 func (usersTable) SQLName() string { return "users" }
 func (usersTable) Alias() string   { return "users" }
+
+func (t usersTable) All() []query.Column {
+	return []query.Column{t.ID, t.Email, t.Name, t.Status, t.Tags, t.Meta, t.Balance, t.ExternalID, t.LastLoginAt, t.UpdatedAt}
+}
+
+func (t usersTable) AllExcept(cols ...query.Column) []query.Column {
+	return query.Except(t.All(), cols...)
+}
 
 func (t usersTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t usersTable) Update() *query.UpdateBuilder { return query.Update(t) }

@@ -27,7 +27,11 @@ func ResolveType(udtName string, enums map[string]schema.Enum) (schema.GoType, e
 
 func mapScalarType(udtName string) (schema.GoType, error) {
 	switch strings.ToLower(udtName) {
-	case "int2", "int4", "int8", "serial", "bigserial", "int":
+	case "int2", "smallserial":
+		return schema.GoType{Name: "int16"}, nil
+	case "int4", "serial", "int":
+		return schema.GoType{Name: "int32"}, nil
+	case "int8", "bigserial":
 		return schema.GoType{Name: "int64"}, nil
 	case "bool":
 		return schema.GoType{Name: "bool"}, nil
@@ -36,7 +40,7 @@ func mapScalarType(udtName string) (schema.GoType, error) {
 	case "timestamptz", "timestamp", "date":
 		return schema.GoType{Name: "time.Time"}, nil
 	case "uuid":
-		return schema.GoType{Name: "uuid.UUID", ImportPath: "github.com/google/uuid"}, nil
+		return schema.GoType{Name: "uuid.UUID", ImportPath: "uuid"}, nil
 	case "json", "jsonb":
 		return schema.GoType{Name: "json.RawMessage", ImportPath: "encoding/json"}, nil
 	case "numeric", "decimal":

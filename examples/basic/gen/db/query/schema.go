@@ -1,5 +1,7 @@
 package query
 
+import "slices"
+
 // Table identifies a database table. Codegen implements this for each table.
 type Table interface {
 	SQLName() string
@@ -16,6 +18,15 @@ type Column interface {
 type qualColumn struct {
 	table  string
 	column string
+}
+
+// Except removes the columns in drop from cols in place, matched by qualified
+// name, and returns the shortened slice. Do not use cols afterwards.
+func Except(cols []Column, drop ...Column) []Column {
+	return slices.DeleteFunc(cols, func(c Column) bool {
+		q := c.Qualifier()
+		return slices.ContainsFunc(drop, func(d Column) bool { return d.Qualifier() == q })
+	})
 }
 
 // Col references a qualified column outside generated schema (e.g. CTE columns).

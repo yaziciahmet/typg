@@ -210,3 +210,35 @@ func TestSelectOrderByRawBindsArgs(t *testing.T) {
 		t.Fatalf("args = %v", args)
 	}
 }
+
+func TestExcept(t *testing.T) {
+	all := func() []query.Column {
+		return []query.Column{querytest.TUsersID, querytest.TUsersName, querytest.TUsersEmail}
+	}
+
+	got := query.Except(all(), querytest.TUsersName, querytest.TUsersEmail)
+	if len(got) != 1 || got[0].Qualifier() != "users.id" {
+		t.Fatalf("got = %v", got)
+	}
+
+	got = query.Except(all(), querytest.TUsersEmail)
+	if len(got) != 2 || got[0].Qualifier() != "users.id" || got[1].Qualifier() != "users.name" {
+		t.Fatalf("order not preserved: %v", got)
+	}
+
+	got = query.Except(all(), query.Col("posts", "id"))
+	if len(got) != 3 {
+		t.Fatalf("unrelated column must be ignored: %v", got)
+	}
+
+	cols := all()
+	got = query.Except(cols, querytest.TUsersName)
+	if len(got) != 2 || &got[0] != &cols[0] {
+		t.Fatalf("must shorten in place: got = %v", got)
+	}
+
+	sql, _ := query.Select(query.Except(all(), querytest.TUsersName)...).From(querytest.TUsers).Build()
+	if want := "SELECT users.id, users.email FROM users"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}

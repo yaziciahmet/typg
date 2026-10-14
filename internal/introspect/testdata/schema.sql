@@ -18,6 +18,8 @@ CREATE TABLE posts (
     user_id    bigint NOT NULL REFERENCES users(id),
     title      text NOT NULL,
     published  boolean NOT NULL DEFAULT false,
+    views      integer NOT NULL DEFAULT 0,
+    rating     smallint,
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
