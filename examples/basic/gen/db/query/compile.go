@@ -129,30 +129,58 @@ func (f tableFrag) compile(c *Compiler) {
 	}
 }
 
-// colVal is a column assignment: either a bound value or a SQL expression.
-type colVal struct {
-	name string
-	val  any
-	expr string
-	args []any
+// Assignment sets a column to a bound value, a SQL expression, or EXCLUDED.col.
+// Generated columns expose typed constructors: Set, SetNull, SetExpr, SetExcluded.
+type Assignment struct {
+	name     string
+	val      any
+	expr     string
+	args     []any
+	excluded bool
 }
 
-func (cv colVal) compileRHS(c *Compiler) {
-	if cv.expr != "" {
-		writeInterpolated(c, cv.expr, cv.args)
-		return
+// Assign sets col to val.
+func Assign(col Column, val any) Assignment {
+	return Assignment{name: col.SQLName(), val: val}
+}
+
+// AssignExpr sets col to a SQL expression, with ? placeholders bound to args.
+func AssignExpr(col Column, sql string, args ...any) Assignment {
+	return Assignment{name: col.SQLName(), expr: sql, args: args}
+}
+
+// AssignExcluded sets col to EXCLUDED.col, for ON CONFLICT DO UPDATE.
+func AssignExcluded(col Column) Assignment {
+	return Assignment{name: col.SQLName(), excluded: true}
+}
+
+func (a Assignment) compileRHS(c *Compiler) {
+	switch {
+	case a.excluded:
+		c.Write("EXCLUDED.")
+		c.Write(a.name)
+	case a.expr != "":
+		writeInterpolated(c, a.expr, a.args)
+	default:
+		c.Write(c.Arg(a.val))
 	}
-	c.Write(c.Arg(cv.val))
 }
 
-func upsertColVal(sets []colVal, name string, cv colVal) []colVal {
-	for i, s := range sets {
-		if s.name == name {
-			sets[i] = cv
-			return sets
+func mergeAssignments(sets []Assignment, assigns ...Assignment) []Assignment {
+	for _, a := range assigns {
+		replaced := false
+		for i, s := range sets {
+			if s.name == a.name {
+				sets[i] = a
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			sets = append(sets, a)
 		}
 	}
-	return append(sets, cv)
+	return sets
 }
 
 func compilePrefix(c *Compiler, with *WithBuilder, prefix []fragment) {

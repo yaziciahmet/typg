@@ -6,7 +6,7 @@ type InsertBuilder struct {
 	prefix   []fragment
 	suffix   []fragment
 	table    Table
-	sets     []colVal
+	sets     []Assignment
 	fromSel  *SelectBuilder
 	returns  []fragment
 	conflict *onConflictClause
@@ -29,18 +29,16 @@ func (b *InsertBuilder) Suffix(sql string, args ...any) *InsertBuilder {
 	return b
 }
 
-// Set adds or overwrites a column value.
-func (b *InsertBuilder) Set(col Column, val any) *InsertBuilder {
+// Set adds column assignments; assigning the same column again overwrites it.
+func (b *InsertBuilder) Set(assigns ...Assignment) *InsertBuilder {
 	b.fromSel = nil
-	b.sets = upsertColVal(b.sets, col.SQLName(), colVal{name: col.SQLName(), val: val})
+	b.sets = mergeAssignments(b.sets, assigns...)
 	return b
 }
 
 // SetAny sets a column by name.
 func (b *InsertBuilder) SetAny(column string, val any) *InsertBuilder {
-	b.fromSel = nil
-	b.sets = upsertColVal(b.sets, column, colVal{name: column, val: val})
-	return b
+	return b.Set(Assignment{name: column, val: val})
 }
 
 // Returning adds a RETURNING clause.
@@ -61,17 +59,12 @@ func (b *InsertBuilder) FromSelect(s *SelectBuilder) *InsertBuilder {
 type onConflictClause struct {
 	cols    []string
 	nothing bool
-	updates []colVal
+	updates []Assignment
 }
 
 type OnConflictBuilder struct {
 	insert *InsertBuilder
 	clause onConflictClause
-}
-
-type Assignment struct {
-	Col Column
-	Val any
 }
 
 // OnConflict starts an ON CONFLICT clause for the given columns.
@@ -92,17 +85,9 @@ func (oc *OnConflictBuilder) DoNothing() *InsertBuilder {
 
 // DoUpdate sets ON CONFLICT DO UPDATE assignments.
 func (oc *OnConflictBuilder) DoUpdate(assigns ...Assignment) *InsertBuilder {
-	for _, a := range assigns {
-		name := a.Col.SQLName()
-		oc.clause.updates = upsertColVal(oc.clause.updates, name, colVal{name: name, val: a.Val})
-	}
+	oc.clause.updates = mergeAssignments(oc.clause.updates, assigns...)
 	oc.insert.conflict = &oc.clause
 	return oc.insert
-}
-
-// Assign pairs a column with a value for ON CONFLICT DO UPDATE.
-func Assign(col Column, val any) Assignment {
-	return Assignment{Col: col, Val: val}
 }
 
 // Build renders SQL and arguments.
@@ -130,7 +115,7 @@ func (b *InsertBuilder) compile(c *Compiler) {
 			if i > 0 {
 				c.Write(", ")
 			}
-			c.Write(c.Arg(s.val))
+			s.compileRHS(c)
 		}
 		c.Write(")")
 	}

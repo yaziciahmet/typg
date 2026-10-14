@@ -6,8 +6,8 @@ type UpdateBuilder struct {
 	prefix  []fragment
 	suffix  []fragment
 	table   Table
-	sets    []colVal
-	from    []string
+	sets    []Assignment
+	from    []Table
 	wheres  []Expr
 	returns []fragment
 }
@@ -29,22 +29,15 @@ func (b *UpdateBuilder) Suffix(sql string, args ...any) *UpdateBuilder {
 	return b
 }
 
-// Set adds or overwrites a column assignment.
-func (b *UpdateBuilder) Set(col Column, val any) *UpdateBuilder {
-	b.sets = upsertColVal(b.sets, col.SQLName(), colVal{name: col.SQLName(), val: val})
+// Set adds column assignments; assigning the same column again overwrites it.
+func (b *UpdateBuilder) Set(assigns ...Assignment) *UpdateBuilder {
+	b.sets = mergeAssignments(b.sets, assigns...)
 	return b
 }
 
 // SetAny sets a column by name.
 func (b *UpdateBuilder) SetAny(column string, val any) *UpdateBuilder {
-	b.sets = upsertColVal(b.sets, column, colVal{name: column, val: val})
-	return b
-}
-
-// SetExpr sets col = sql, with ? placeholders bound to args.
-func (b *UpdateBuilder) SetExpr(col Column, sql string, args ...any) *UpdateBuilder {
-	b.sets = upsertColVal(b.sets, col.SQLName(), colVal{name: col.SQLName(), expr: sql, args: args})
-	return b
+	return b.Set(Assignment{name: column, val: val})
 }
 
 // Where adds an AND condition.
@@ -62,7 +55,7 @@ func (b *UpdateBuilder) Returning(cols ...Column) *UpdateBuilder {
 }
 
 // From adds UPDATE ... FROM tables (postgres).
-func (b *UpdateBuilder) From(tables ...string) *UpdateBuilder {
+func (b *UpdateBuilder) From(tables ...Table) *UpdateBuilder {
 	b.from = append(b.from, tables...)
 	return b
 }
@@ -91,7 +84,7 @@ func (b *UpdateBuilder) compile(c *Compiler) {
 			if i > 0 {
 				c.Write(", ")
 			}
-			c.Write(t)
+			tableFrag{table: t}.compile(c)
 		}
 	}
 	compileWhere(c, b.wheres)

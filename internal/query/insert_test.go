@@ -9,9 +9,9 @@ import (
 
 func TestInsertSetOverwrite(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
-		Set(querytest.TUsersName, "first").
-		Set(querytest.TUsersName, "second").
-		Set(querytest.TUsersID, int64(1)).
+		Set(query.Assign(querytest.TUsersName, "first")).
+		Set(query.Assign(querytest.TUsersName, "second")).
+		Set(query.Assign(querytest.TUsersID, int64(1))).
 		Build()
 
 	want := "INSERT INTO users (name, id) VALUES ($1, $2)"
@@ -25,7 +25,7 @@ func TestInsertSetOverwrite(t *testing.T) {
 
 func TestInsertReturning(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
-		Set(querytest.TUsersName, "alice").
+		Set(query.Assign(querytest.TUsersName, "alice")).
 		Returning(querytest.TUsersID).
 		Build()
 
@@ -40,8 +40,8 @@ func TestInsertReturning(t *testing.T) {
 
 func TestInsertOnConflictDoUpdate(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
-		Set(querytest.TUsersEmail, "a@b.com").
-		Set(querytest.TUsersName, "alice").
+		Set(query.Assign(querytest.TUsersEmail, "a@b.com")).
+		Set(query.Assign(querytest.TUsersName, "alice")).
 		OnConflict(querytest.TUsersEmail).
 		DoUpdate(
 			query.Assign(querytest.TUsersName, "alice"),
@@ -61,7 +61,7 @@ func TestInsertOnConflictDoUpdate(t *testing.T) {
 func TestInsertFromSelectClearsSets(t *testing.T) {
 	src := query.Select(querytest.TUsersID).From(querytest.TUsers)
 	sql, args := query.Insert(querytest.TUsers).
-		Set(querytest.TUsersName, "ignored").
+		Set(query.Assign(querytest.TUsersName, "ignored")).
 		FromSelect(src).
 		Build()
 
@@ -78,7 +78,7 @@ func TestInsertSetClearsFromSelect(t *testing.T) {
 	src := query.Select(querytest.TUsersID).From(querytest.TUsers)
 	sql, args := query.Insert(querytest.TUsers).
 		FromSelect(src).
-		Set(querytest.TUsersName, "alice").
+		Set(query.Assign(querytest.TUsersName, "alice")).
 		Build()
 
 	want := "INSERT INTO users (name) VALUES ($1)"
@@ -93,7 +93,7 @@ func TestInsertSetClearsFromSelect(t *testing.T) {
 func TestInsertSetAny(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
 		SetAny("legacy_col", 99).
-		Set(querytest.TUsersName, "alice").
+		Set(query.Assign(querytest.TUsersName, "alice")).
 		Build()
 
 	want := "INSERT INTO users (legacy_col, name) VALUES ($1, $2)"
@@ -107,7 +107,7 @@ func TestInsertSetAny(t *testing.T) {
 
 func TestInsertOnConflictDoNothing(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
-		Set(querytest.TUsersEmail, "a@b.com").
+		Set(query.Assign(querytest.TUsersEmail, "a@b.com")).
 		OnConflict(querytest.TUsersEmail).
 		DoNothing().
 		Build()
@@ -124,7 +124,7 @@ func TestInsertOnConflictDoNothing(t *testing.T) {
 func TestInsertPrefixSuffix(t *testing.T) {
 	sql, args := query.Insert(querytest.TUsers).
 		Prefix("/* batch */ ").
-		Set(querytest.TUsersName, "alice").
+		Set(query.Assign(querytest.TUsersName, "alice")).
 		Suffix(" ON CONFLICT DO NOTHING").
 		Build()
 
@@ -133,6 +133,51 @@ func TestInsertPrefixSuffix(t *testing.T) {
 		t.Fatalf("sql = %q", sql)
 	}
 	if len(args) != 1 {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestInsertAssignExpr(t *testing.T) {
+	sql, args := query.Insert(querytest.TUsers).
+		Set(query.Assign(querytest.TUsersName, "alice"), query.AssignExpr(querytest.TUsersUpdatedAt, "NOW()")).
+		Build()
+
+	if want := "INSERT INTO users (name, updated_at) VALUES ($1, NOW())"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 1 || args[0] != "alice" {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestInsertSetNullBindsNil(t *testing.T) {
+	sql, args := query.Insert(querytest.TUsers).
+		Set(query.Assign(querytest.TUsersEmail, nil)).
+		Build()
+
+	if want := "INSERT INTO users (email) VALUES ($1)"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 1 || args[0] != nil {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestInsertOnConflictExcludedAndExpr(t *testing.T) {
+	sql, args := query.Insert(querytest.TUsers).
+		Set(query.Assign(querytest.TUsersID, int64(1)), query.Assign(querytest.TUsersName, "alice")).
+		OnConflict(querytest.TUsersID).
+		DoUpdate(
+			query.AssignExcluded(querytest.TUsersName),
+			query.AssignExpr(querytest.TUsersStatus, "COALESCE(?, users.status)", "x"),
+		).
+		Build()
+
+	want := "INSERT INTO users (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, status = COALESCE($3, users.status)"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 3 || args[2] != "x" {
 		t.Fatalf("args = %v", args)
 	}
 }
