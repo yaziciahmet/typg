@@ -18,7 +18,21 @@ func With(name string) *query.WithBuilder { return query.With(name) }
 
 func Col(table, column string) query.Column { return query.Col(table, column) }
 
-func NewRawCol(sql string, args ...any) query.Column { return query.NewRawCol(sql, args...) }
+func NewRawCol(sql string, args ...any) *query.RawColumn { return query.NewRawCol(sql, args...) }
+
+func ColumnAs(col query.Column, alias string) query.Column { return query.ColumnAs(col, alias) }
+
+func Count() *query.RawColumn { return query.Count() }
+
+func CountOf(col query.Column) *query.RawColumn { return query.CountOf(col) }
+
+func Sum(col query.Column) *query.RawColumn { return query.Sum(col) }
+
+func Max(col query.Column) *query.RawColumn { return query.Max(col) }
+
+func Min(col query.Column) *query.RawColumn { return query.Min(col) }
+
+func Coalesce(col query.Column, fallback any) *query.RawColumn { return query.Coalesce(col, fallback) }
 
 func Named(name string) query.Table { return query.Named(name) }
 
@@ -51,6 +65,18 @@ func Lte(col query.Column, val any) query.Expr { return query.Lte(col, val) }
 func LteCol(col, other query.Column) query.Expr { return query.LteCol(col, other) }
 
 func In(col query.Column, values ...any) query.Expr { return query.In(col, values...) }
+
+func NotIn(col query.Column, values ...any) query.Expr { return query.NotIn(col, values...) }
+
+func Between(col query.Column, lo, hi any) query.Expr { return query.Between(col, lo, hi) }
+
+func EqAny(col query.Column, values any) query.Expr { return query.EqAny(col, values) }
+
+func Not(e query.Expr) query.Expr { return query.Not(e) }
+
+func Exists(sub *query.SelectBuilder) query.Expr { return query.Exists(sub) }
+
+func InSelect(col query.Column, sub *query.SelectBuilder) query.Expr { return query.InSelect(col, sub) }
 
 func Like(col query.Column, pattern string) query.Expr { return query.Like(col, pattern) }
 

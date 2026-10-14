@@ -19,11 +19,11 @@ type SelectBuilder struct {
 	prefix   []fragment
 	suffix   []fragment
 	distinct bool
-	cols     []fragment
+	cols     []Column
 	from     Table
 	joins    []joinClause
 	wheres   []Expr
-	groupBy  []fragment
+	groupBy  []Column
 	having   []Expr
 	orderBy  []orderClause
 	limit    *int
@@ -39,9 +39,7 @@ func Select(cols ...Column) *SelectBuilder {
 
 // Columns appends typed columns to the SELECT list.
 func (s *SelectBuilder) Columns(cols ...Column) *SelectBuilder {
-	for _, col := range cols {
-		s.cols = append(s.cols, columnFrag{col: col})
-	}
+	s.cols = append(s.cols, cols...)
 	return s
 }
 
@@ -101,9 +99,7 @@ func (s *SelectBuilder) Where(e Expr) *SelectBuilder {
 
 // GroupBy adds GROUP BY columns.
 func (s *SelectBuilder) GroupBy(cols ...Column) *SelectBuilder {
-	for _, col := range cols {
-		s.groupBy = append(s.groupBy, columnFrag{col: col})
-	}
+	s.groupBy = append(s.groupBy, cols...)
 	return s
 }
 
@@ -156,7 +152,7 @@ func (s *SelectBuilder) compile(c *Compiler) {
 		if i > 0 {
 			c.Write(", ")
 		}
-		col.compile(c)
+		writeSelect(c, col)
 	}
 	if s.from != nil {
 		c.Write(" FROM ")
@@ -179,7 +175,7 @@ func (s *SelectBuilder) compile(c *Compiler) {
 			if i > 0 {
 				c.Write(", ")
 			}
-			col.compile(c)
+			writeExpr(c, col)
 		}
 	}
 	compileHaving(c, s.having)
@@ -189,7 +185,7 @@ func (s *SelectBuilder) compile(c *Compiler) {
 			if i > 0 {
 				c.Write(", ")
 			}
-			columnFrag{col: o.col}.compile(c)
+			writeOrder(c, o.col)
 			if o.desc {
 				c.Write(" DESC")
 			}

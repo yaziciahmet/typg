@@ -20,7 +20,7 @@ func ResolveType(udtName string, enums map[string]schema.Enum) (schema.GoType, e
 		}, nil
 	}
 	if _, ok := enums[udtName]; ok {
-		return schema.GoType{Name: enumTypeName(udtName), IsEnum: true}, nil
+		return schema.GoType{Name: schema.ExportIdent(udtName), IsEnum: true}, nil
 	}
 	return mapScalarType(udtName)
 }
@@ -38,7 +38,7 @@ func mapScalarType(udtName string) (schema.GoType, error) {
 	case "text", "varchar", "bpchar", "name":
 		return schema.GoType{Name: "string"}, nil
 	case "timestamptz", "timestamp", "date":
-		return schema.GoType{Name: "time.Time"}, nil
+		return schema.GoType{Name: "time.Time", ImportPath: "time"}, nil
 	case "uuid":
 		return schema.GoType{Name: "uuid.UUID", ImportPath: "uuid"}, nil
 	case "json", "jsonb":
@@ -52,15 +52,4 @@ func mapScalarType(udtName string) (schema.GoType, error) {
 	default:
 		return schema.GoType{}, fmt.Errorf("unsupported postgres type %q", udtName)
 	}
-}
-
-func enumTypeName(pgName string) string {
-	parts := strings.Split(pgName, "_")
-	for i, p := range parts {
-		if p == "" {
-			continue
-		}
-		parts[i] = strings.ToUpper(p[:1]) + p[1:]
-	}
-	return strings.Join(parts, "")
 }

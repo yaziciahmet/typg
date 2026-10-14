@@ -12,6 +12,7 @@ import (
 )
 
 type usersTable struct {
+	alias       string
 	ID          usersIDCol
 	Email       usersEmailCol
 	Name        usersNameCol
@@ -24,21 +25,27 @@ type usersTable struct {
 	UpdatedAt   usersUpdatedAtCol
 }
 
-var Users = usersTable{
-	ID:          usersIDCol{},
-	Email:       usersEmailCol{},
-	Name:        usersNameCol{},
-	Status:      usersStatusCol{},
-	Tags:        usersTagsCol{},
-	Meta:        usersMetaCol{},
-	Balance:     usersBalanceCol{},
-	ExternalID:  usersExternalIDCol{},
-	LastLoginAt: usersLastLoginAtCol{},
-	UpdatedAt:   usersUpdatedAtCol{},
+func newUsersTable(alias string) usersTable {
+	return usersTable{
+		alias:       alias,
+		ID:          usersIDCol{qualifier: alias + ".id"},
+		Email:       usersEmailCol{qualifier: alias + ".email"},
+		Name:        usersNameCol{qualifier: alias + ".name"},
+		Status:      usersStatusCol{qualifier: alias + ".status"},
+		Tags:        usersTagsCol{qualifier: alias + ".tags"},
+		Meta:        usersMetaCol{qualifier: alias + ".meta"},
+		Balance:     usersBalanceCol{qualifier: alias + ".balance"},
+		ExternalID:  usersExternalIDCol{qualifier: alias + ".external_id"},
+		LastLoginAt: usersLastLoginAtCol{qualifier: alias + ".last_login_at"},
+		UpdatedAt:   usersUpdatedAtCol{qualifier: alias + ".updated_at"},
+	}
 }
 
-func (usersTable) SQLName() string { return "users" }
-func (usersTable) Alias() string   { return "users" }
+var Users = newUsersTable("users")
+
+func (usersTable) SQLName() string              { return "users" }
+func (t usersTable) Alias() string              { return t.alias }
+func (t usersTable) As(alias string) usersTable { return newUsersTable(alias) }
 
 func (t usersTable) All() []query.Column {
 	return []query.Column{t.ID, t.Email, t.Name, t.Status, t.Tags, t.Meta, t.Balance, t.ExternalID, t.LastLoginAt, t.UpdatedAt}
@@ -52,12 +59,12 @@ func (t usersTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t usersTable) Update() *query.UpdateBuilder { return query.Update(t) }
 func (t usersTable) Delete() *query.DeleteBuilder { return query.Delete(t) }
 
-type usersIDCol struct{}
+type usersIDCol struct{ qualifier string }
 
-func (usersIDCol) SQLName() string    { return "id" }
-func (usersIDCol) Qualifier() string  { return "users.id" }
-func (usersIDCol) Table() query.Table { return Users }
+func (usersIDCol) SQLName() string     { return "id" }
+func (c usersIDCol) Qualifier() string { return c.qualifier }
 
+func (c usersIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
 func (c usersIDCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersIDCol) Ne(v int64) query.Expr                { return query.Ne(c, v) }
@@ -70,6 +77,7 @@ func (c usersIDCol) Lt(v int64) query.Expr                { return query.Lt(c, v
 func (c usersIDCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersIDCol) Lte(v int64) query.Expr               { return query.Lte(c, v) }
 func (c usersIDCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersIDCol) Between(lo, hi int64) query.Expr      { return query.Between(c, lo, hi) }
 func (c usersIDCol) In(vals ...int64) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -78,18 +86,28 @@ func (c usersIDCol) In(vals ...int64) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c usersIDCol) NotIn(vals ...int64) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersIDCol) EqAny(vals []int64) query.Expr { return query.EqAny(c, vals) }
+
 func (c usersIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
 func (c usersIDCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
 }
 func (c usersIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersEmailCol struct{}
+type usersEmailCol struct{ qualifier string }
 
-func (usersEmailCol) SQLName() string    { return "email" }
-func (usersEmailCol) Qualifier() string  { return "users.email" }
-func (usersEmailCol) Table() query.Table { return Users }
+func (usersEmailCol) SQLName() string     { return "email" }
+func (c usersEmailCol) Qualifier() string { return c.qualifier }
 
+func (c usersEmailCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersEmailCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
 func (c usersEmailCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersEmailCol) Ne(v string) query.Expr               { return query.Ne(c, v) }
@@ -102,6 +120,7 @@ func (c usersEmailCol) Lt(v string) query.Expr               { return query.Lt(c
 func (c usersEmailCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersEmailCol) Lte(v string) query.Expr              { return query.Lte(c, v) }
 func (c usersEmailCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersEmailCol) Between(lo, hi string) query.Expr     { return query.Between(c, lo, hi) }
 func (c usersEmailCol) In(vals ...string) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -109,6 +128,16 @@ func (c usersEmailCol) In(vals ...string) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersEmailCol) NotIn(vals ...string) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersEmailCol) EqAny(vals []string) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersEmailCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c usersEmailCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
@@ -118,12 +147,12 @@ func (c usersEmailCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersEmailCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersNameCol struct{}
+type usersNameCol struct{ qualifier string }
 
-func (usersNameCol) SQLName() string    { return "name" }
-func (usersNameCol) Qualifier() string  { return "users.name" }
-func (usersNameCol) Table() query.Table { return Users }
+func (usersNameCol) SQLName() string     { return "name" }
+func (c usersNameCol) Qualifier() string { return c.qualifier }
 
+func (c usersNameCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersNameCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
 func (c usersNameCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersNameCol) Ne(v string) query.Expr               { return query.Ne(c, v) }
@@ -136,6 +165,7 @@ func (c usersNameCol) Lt(v string) query.Expr               { return query.Lt(c,
 func (c usersNameCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersNameCol) Lte(v string) query.Expr              { return query.Lte(c, v) }
 func (c usersNameCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersNameCol) Between(lo, hi string) query.Expr     { return query.Between(c, lo, hi) }
 func (c usersNameCol) In(vals ...string) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -143,6 +173,16 @@ func (c usersNameCol) In(vals ...string) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersNameCol) NotIn(vals ...string) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersNameCol) EqAny(vals []string) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersNameCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c usersNameCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
@@ -152,24 +192,25 @@ func (c usersNameCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c usersNameCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersStatusCol struct{}
+type usersStatusCol struct{ qualifier string }
 
-func (usersStatusCol) SQLName() string    { return "status" }
-func (usersStatusCol) Qualifier() string  { return "users.status" }
-func (usersStatusCol) Table() query.Table { return Users }
+func (usersStatusCol) SQLName() string     { return "status" }
+func (c usersStatusCol) Qualifier() string { return c.qualifier }
 
-func (c usersStatusCol) Eq(v models.UserStatus) query.Expr    { return query.Eq(c, v) }
-func (c usersStatusCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
-func (c usersStatusCol) Ne(v models.UserStatus) query.Expr    { return query.Ne(c, v) }
-func (c usersStatusCol) NeCol(other query.Column) query.Expr  { return query.NeCol(c, other) }
-func (c usersStatusCol) Gt(v models.UserStatus) query.Expr    { return query.Gt(c, v) }
-func (c usersStatusCol) GtCol(other query.Column) query.Expr  { return query.GtCol(c, other) }
-func (c usersStatusCol) Gte(v models.UserStatus) query.Expr   { return query.Gte(c, v) }
-func (c usersStatusCol) GteCol(other query.Column) query.Expr { return query.GteCol(c, other) }
-func (c usersStatusCol) Lt(v models.UserStatus) query.Expr    { return query.Lt(c, v) }
-func (c usersStatusCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
-func (c usersStatusCol) Lte(v models.UserStatus) query.Expr   { return query.Lte(c, v) }
-func (c usersStatusCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersStatusCol) As(alias string) query.Column                { return query.ColumnAs(c, alias) }
+func (c usersStatusCol) Eq(v models.UserStatus) query.Expr           { return query.Eq(c, v) }
+func (c usersStatusCol) EqCol(other query.Column) query.Expr         { return query.EqCol(c, other) }
+func (c usersStatusCol) Ne(v models.UserStatus) query.Expr           { return query.Ne(c, v) }
+func (c usersStatusCol) NeCol(other query.Column) query.Expr         { return query.NeCol(c, other) }
+func (c usersStatusCol) Gt(v models.UserStatus) query.Expr           { return query.Gt(c, v) }
+func (c usersStatusCol) GtCol(other query.Column) query.Expr         { return query.GtCol(c, other) }
+func (c usersStatusCol) Gte(v models.UserStatus) query.Expr          { return query.Gte(c, v) }
+func (c usersStatusCol) GteCol(other query.Column) query.Expr        { return query.GteCol(c, other) }
+func (c usersStatusCol) Lt(v models.UserStatus) query.Expr           { return query.Lt(c, v) }
+func (c usersStatusCol) LtCol(other query.Column) query.Expr         { return query.LtCol(c, other) }
+func (c usersStatusCol) Lte(v models.UserStatus) query.Expr          { return query.Lte(c, v) }
+func (c usersStatusCol) LteCol(other query.Column) query.Expr        { return query.LteCol(c, other) }
+func (c usersStatusCol) Between(lo, hi models.UserStatus) query.Expr { return query.Between(c, lo, hi) }
 func (c usersStatusCol) In(vals ...models.UserStatus) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -178,18 +219,26 @@ func (c usersStatusCol) In(vals ...models.UserStatus) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c usersStatusCol) NotIn(vals ...models.UserStatus) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
 func (c usersStatusCol) Set(v models.UserStatus) query.Assignment { return query.Assign(c, v) }
 func (c usersStatusCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
 }
 func (c usersStatusCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type usersTagsCol struct{}
+type usersTagsCol struct{ qualifier string }
 
-func (usersTagsCol) SQLName() string    { return "tags" }
-func (usersTagsCol) Qualifier() string  { return "users.tags" }
-func (usersTagsCol) Table() query.Table { return Users }
+func (usersTagsCol) SQLName() string     { return "tags" }
+func (c usersTagsCol) Qualifier() string { return c.qualifier }
 
+func (c usersTagsCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c usersTagsCol) Eq(v []string) query.Expr            { return query.Eq(c, v) }
 func (c usersTagsCol) EqCol(other query.Column) query.Expr { return query.EqCol(c, other) }
 func (c usersTagsCol) Ne(v []string) query.Expr            { return query.Ne(c, v) }
@@ -204,12 +253,12 @@ func (c usersTagsCol) SetNull() query.Assignment     { return query.Assign(c, ni
 func (c usersTagsCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersTagsCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersMetaCol struct{}
+type usersMetaCol struct{ qualifier string }
 
-func (usersMetaCol) SQLName() string    { return "meta" }
-func (usersMetaCol) Qualifier() string  { return "users.meta" }
-func (usersMetaCol) Table() query.Table { return Users }
+func (usersMetaCol) SQLName() string     { return "meta" }
+func (c usersMetaCol) Qualifier() string { return c.qualifier }
 
+func (c usersMetaCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c usersMetaCol) Eq(v json.RawMessage) query.Expr     { return query.Eq(c, v) }
 func (c usersMetaCol) EqCol(other query.Column) query.Expr { return query.EqCol(c, other) }
 func (c usersMetaCol) Ne(v json.RawMessage) query.Expr     { return query.Ne(c, v) }
@@ -222,6 +271,16 @@ func (c usersMetaCol) In(vals ...json.RawMessage) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c usersMetaCol) NotIn(vals ...json.RawMessage) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersMetaCol) EqAny(vals []json.RawMessage) query.Expr { return query.EqAny(c, vals) }
+
 func (c usersMetaCol) Set(v json.RawMessage) query.Assignment { return query.Assign(c, v) }
 func (c usersMetaCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
@@ -231,24 +290,25 @@ func (c usersMetaCol) SetNull() query.Assignment     { return query.Assign(c, ni
 func (c usersMetaCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersMetaCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersBalanceCol struct{}
+type usersBalanceCol struct{ qualifier string }
 
-func (usersBalanceCol) SQLName() string    { return "balance" }
-func (usersBalanceCol) Qualifier() string  { return "users.balance" }
-func (usersBalanceCol) Table() query.Table { return Users }
+func (usersBalanceCol) SQLName() string     { return "balance" }
+func (c usersBalanceCol) Qualifier() string { return c.qualifier }
 
-func (c usersBalanceCol) Eq(v decimal.Decimal) query.Expr      { return query.Eq(c, v) }
-func (c usersBalanceCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
-func (c usersBalanceCol) Ne(v decimal.Decimal) query.Expr      { return query.Ne(c, v) }
-func (c usersBalanceCol) NeCol(other query.Column) query.Expr  { return query.NeCol(c, other) }
-func (c usersBalanceCol) Gt(v decimal.Decimal) query.Expr      { return query.Gt(c, v) }
-func (c usersBalanceCol) GtCol(other query.Column) query.Expr  { return query.GtCol(c, other) }
-func (c usersBalanceCol) Gte(v decimal.Decimal) query.Expr     { return query.Gte(c, v) }
-func (c usersBalanceCol) GteCol(other query.Column) query.Expr { return query.GteCol(c, other) }
-func (c usersBalanceCol) Lt(v decimal.Decimal) query.Expr      { return query.Lt(c, v) }
-func (c usersBalanceCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
-func (c usersBalanceCol) Lte(v decimal.Decimal) query.Expr     { return query.Lte(c, v) }
-func (c usersBalanceCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersBalanceCol) As(alias string) query.Column              { return query.ColumnAs(c, alias) }
+func (c usersBalanceCol) Eq(v decimal.Decimal) query.Expr           { return query.Eq(c, v) }
+func (c usersBalanceCol) EqCol(other query.Column) query.Expr       { return query.EqCol(c, other) }
+func (c usersBalanceCol) Ne(v decimal.Decimal) query.Expr           { return query.Ne(c, v) }
+func (c usersBalanceCol) NeCol(other query.Column) query.Expr       { return query.NeCol(c, other) }
+func (c usersBalanceCol) Gt(v decimal.Decimal) query.Expr           { return query.Gt(c, v) }
+func (c usersBalanceCol) GtCol(other query.Column) query.Expr       { return query.GtCol(c, other) }
+func (c usersBalanceCol) Gte(v decimal.Decimal) query.Expr          { return query.Gte(c, v) }
+func (c usersBalanceCol) GteCol(other query.Column) query.Expr      { return query.GteCol(c, other) }
+func (c usersBalanceCol) Lt(v decimal.Decimal) query.Expr           { return query.Lt(c, v) }
+func (c usersBalanceCol) LtCol(other query.Column) query.Expr       { return query.LtCol(c, other) }
+func (c usersBalanceCol) Lte(v decimal.Decimal) query.Expr          { return query.Lte(c, v) }
+func (c usersBalanceCol) LteCol(other query.Column) query.Expr      { return query.LteCol(c, other) }
+func (c usersBalanceCol) Between(lo, hi decimal.Decimal) query.Expr { return query.Between(c, lo, hi) }
 func (c usersBalanceCol) In(vals ...decimal.Decimal) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -256,6 +316,16 @@ func (c usersBalanceCol) In(vals ...decimal.Decimal) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersBalanceCol) NotIn(vals ...decimal.Decimal) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersBalanceCol) EqAny(vals []decimal.Decimal) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersBalanceCol) Set(v decimal.Decimal) query.Assignment { return query.Assign(c, v) }
 func (c usersBalanceCol) SetExpr(sql string, args ...any) query.Assignment {
@@ -266,12 +336,12 @@ func (c usersBalanceCol) SetNull() query.Assignment     { return query.Assign(c,
 func (c usersBalanceCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersBalanceCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersExternalIDCol struct{}
+type usersExternalIDCol struct{ qualifier string }
 
-func (usersExternalIDCol) SQLName() string    { return "external_id" }
-func (usersExternalIDCol) Qualifier() string  { return "users.external_id" }
-func (usersExternalIDCol) Table() query.Table { return Users }
+func (usersExternalIDCol) SQLName() string     { return "external_id" }
+func (c usersExternalIDCol) Qualifier() string { return c.qualifier }
 
+func (c usersExternalIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersExternalIDCol) Eq(v uuid.UUID) query.Expr            { return query.Eq(c, v) }
 func (c usersExternalIDCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersExternalIDCol) Ne(v uuid.UUID) query.Expr            { return query.Ne(c, v) }
@@ -284,6 +354,7 @@ func (c usersExternalIDCol) Lt(v uuid.UUID) query.Expr            { return query
 func (c usersExternalIDCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersExternalIDCol) Lte(v uuid.UUID) query.Expr           { return query.Lte(c, v) }
 func (c usersExternalIDCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersExternalIDCol) Between(lo, hi uuid.UUID) query.Expr  { return query.Between(c, lo, hi) }
 func (c usersExternalIDCol) In(vals ...uuid.UUID) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -291,6 +362,16 @@ func (c usersExternalIDCol) In(vals ...uuid.UUID) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersExternalIDCol) NotIn(vals ...uuid.UUID) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersExternalIDCol) EqAny(vals []uuid.UUID) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersExternalIDCol) Set(v uuid.UUID) query.Assignment { return query.Assign(c, v) }
 func (c usersExternalIDCol) SetExpr(sql string, args ...any) query.Assignment {
@@ -301,12 +382,12 @@ func (c usersExternalIDCol) SetNull() query.Assignment     { return query.Assign
 func (c usersExternalIDCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersExternalIDCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersLastLoginAtCol struct{}
+type usersLastLoginAtCol struct{ qualifier string }
 
-func (usersLastLoginAtCol) SQLName() string    { return "last_login_at" }
-func (usersLastLoginAtCol) Qualifier() string  { return "users.last_login_at" }
-func (usersLastLoginAtCol) Table() query.Table { return Users }
+func (usersLastLoginAtCol) SQLName() string     { return "last_login_at" }
+func (c usersLastLoginAtCol) Qualifier() string { return c.qualifier }
 
+func (c usersLastLoginAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersLastLoginAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }
 func (c usersLastLoginAtCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersLastLoginAtCol) Ne(v time.Time) query.Expr            { return query.Ne(c, v) }
@@ -319,6 +400,7 @@ func (c usersLastLoginAtCol) Lt(v time.Time) query.Expr            { return quer
 func (c usersLastLoginAtCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersLastLoginAtCol) Lte(v time.Time) query.Expr           { return query.Lte(c, v) }
 func (c usersLastLoginAtCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersLastLoginAtCol) Between(lo, hi time.Time) query.Expr  { return query.Between(c, lo, hi) }
 func (c usersLastLoginAtCol) In(vals ...time.Time) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -326,6 +408,16 @@ func (c usersLastLoginAtCol) In(vals ...time.Time) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersLastLoginAtCol) NotIn(vals ...time.Time) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersLastLoginAtCol) EqAny(vals []time.Time) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersLastLoginAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
 func (c usersLastLoginAtCol) SetExpr(sql string, args ...any) query.Assignment {
@@ -336,12 +428,12 @@ func (c usersLastLoginAtCol) SetNull() query.Assignment     { return query.Assig
 func (c usersLastLoginAtCol) IsNull() query.Expr            { return query.IsNull(c) }
 func (c usersLastLoginAtCol) NotNull() query.Expr           { return query.NotNull(c) }
 
-type usersUpdatedAtCol struct{}
+type usersUpdatedAtCol struct{ qualifier string }
 
-func (usersUpdatedAtCol) SQLName() string    { return "updated_at" }
-func (usersUpdatedAtCol) Qualifier() string  { return "users.updated_at" }
-func (usersUpdatedAtCol) Table() query.Table { return Users }
+func (usersUpdatedAtCol) SQLName() string     { return "updated_at" }
+func (c usersUpdatedAtCol) Qualifier() string { return c.qualifier }
 
+func (c usersUpdatedAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c usersUpdatedAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }
 func (c usersUpdatedAtCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c usersUpdatedAtCol) Ne(v time.Time) query.Expr            { return query.Ne(c, v) }
@@ -354,6 +446,7 @@ func (c usersUpdatedAtCol) Lt(v time.Time) query.Expr            { return query.
 func (c usersUpdatedAtCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c usersUpdatedAtCol) Lte(v time.Time) query.Expr           { return query.Lte(c, v) }
 func (c usersUpdatedAtCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c usersUpdatedAtCol) Between(lo, hi time.Time) query.Expr  { return query.Between(c, lo, hi) }
 func (c usersUpdatedAtCol) In(vals ...time.Time) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -361,6 +454,16 @@ func (c usersUpdatedAtCol) In(vals ...time.Time) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c usersUpdatedAtCol) NotIn(vals ...time.Time) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c usersUpdatedAtCol) EqAny(vals []time.Time) query.Expr { return query.EqAny(c, vals) }
 
 func (c usersUpdatedAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
 func (c usersUpdatedAtCol) SetExpr(sql string, args ...any) query.Assignment {

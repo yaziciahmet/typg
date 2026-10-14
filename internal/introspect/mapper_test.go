@@ -30,7 +30,7 @@ func TestResolveType(t *testing.T) {
 		{"_int8", schema.GoType{Name: "[]int64"}, true},
 		{"uuid", schema.GoType{Name: "uuid.UUID", ImportPath: "uuid"}, true},
 		{"_uuid", schema.GoType{Name: "[]uuid.UUID", ImportPath: "uuid"}, true},
-		{"timestamptz", schema.GoType{Name: "time.Time"}, true},
+		{"timestamptz", schema.GoType{Name: "time.Time", ImportPath: "time"}, true},
 		{"user_status", schema.GoType{Name: "UserStatus", IsEnum: true}, true},
 		{"jsonb", schema.GoType{Name: "json.RawMessage", ImportPath: "encoding/json"}, true},
 		{"geometry", schema.GoType{}, false},

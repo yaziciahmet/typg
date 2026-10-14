@@ -17,14 +17,15 @@ type Expr interface {
 
 // Compiler renders SQL and collects placeholder arguments.
 type Compiler struct {
-	buf   strings.Builder
-	args  []any
-	index int
+	buf  strings.Builder
+	args []any
 }
 
 // NewCompiler returns a compiler for PostgreSQL ($1, $2, ...).
 func NewCompiler() *Compiler {
-	return &Compiler{}
+	c := &Compiler{}
+	c.buf.Grow(192)
+	return c
 }
 
 // Write appends literal SQL.
@@ -32,11 +33,12 @@ func (c *Compiler) Write(sql string) {
 	c.buf.WriteString(sql)
 }
 
-// Arg registers a value and returns its PostgreSQL placeholder.
-func (c *Compiler) Arg(v any) string {
-	c.index++
+// bind registers a value and writes its PostgreSQL placeholder.
+func (c *Compiler) bind(v any) {
 	c.args = append(c.args, v)
-	return "$" + strconv.Itoa(c.index)
+	var tmp [12]byte
+	tmp[0] = '$'
+	c.buf.Write(strconv.AppendInt(tmp[:1], int64(len(c.args)), 10))
 }
 
 // SQL returns the rendered query string.
@@ -49,12 +51,58 @@ func (c *Compiler) Args() []any {
 	return c.args
 }
 
-func writeArg(c *Compiler, v any) {
-	if col, ok := v.(Column); ok {
-		c.Write(col.Qualifier())
+type exprCompiler interface{ compileExpr(c *Compiler) }
+
+type selectCompiler interface{ compileSelect(c *Compiler) }
+
+type aliased interface{ aliasName() string }
+
+// writeExpr renders col as an expression, for WHERE, HAVING, ON and GROUP BY.
+func writeExpr(c *Compiler, col Column) {
+	if e, ok := col.(exprCompiler); ok {
+		e.compileExpr(c)
 		return
 	}
-	c.Write(c.Arg(v))
+	c.Write(col.Qualifier())
+}
+
+// writeSelect renders col for the select list and RETURNING, including its alias.
+func writeSelect(c *Compiler, col Column) {
+	if s, ok := col.(selectCompiler); ok {
+		s.compileSelect(c)
+		return
+	}
+	writeExpr(c, col)
+}
+
+// writeOrder renders col for ORDER BY, which refers to an alias when there is one.
+func writeOrder(c *Compiler, col Column) {
+	if a, ok := col.(aliased); ok && a.aliasName() != "" {
+		c.Write(a.aliasName())
+		return
+	}
+	writeExpr(c, col)
+}
+
+// writeOperand renders col as an operand of a comparison. Raw expressions are
+// parenthesized, except the function-call helpers, which are already atomic.
+func writeOperand(c *Compiler, col Column) {
+	if r, ok := col.(*RawColumn); ok && !r.atomic {
+		c.Write("(")
+		r.compileExpr(c)
+		c.Write(")")
+		return
+	}
+	writeExpr(c, col)
+}
+
+// writeArg renders v as a column operand when it is a Column, else binds it.
+func writeArg(c *Compiler, v any) {
+	if col, ok := v.(Column); ok {
+		writeOperand(c, col)
+		return
+	}
+	c.bind(v)
 }
 
 func writeInterpolated(c *Compiler, sql string, args []any) {
@@ -105,18 +153,6 @@ func (r Raw) compile(c *Compiler) {
 	writeInterpolated(c, r.sql, r.args)
 }
 
-type columnFrag struct {
-	col Column
-}
-
-func (f columnFrag) compile(c *Compiler) {
-	if cc, ok := f.col.(interface{ compile(c *Compiler) }); ok {
-		cc.compile(c)
-		return
-	}
-	c.Write(f.col.Qualifier())
-}
-
 type tableFrag struct {
 	table Table
 }
@@ -162,7 +198,7 @@ func (a Assignment) compileRHS(c *Compiler) {
 	case a.expr != "":
 		writeInterpolated(c, a.expr, a.args)
 	default:
-		c.Write(c.Arg(a.val))
+		writeArg(c, a.val)
 	}
 }
 
@@ -237,7 +273,7 @@ func needsParens(e Expr) bool {
 	return false
 }
 
-func compileReturning(c *Compiler, returns []fragment) {
+func compileReturning(c *Compiler, returns []Column) {
 	if len(returns) == 0 {
 		return
 	}
@@ -246,7 +282,7 @@ func compileReturning(c *Compiler, returns []fragment) {
 		if i > 0 {
 			c.Write(", ")
 		}
-		col.compile(c)
+		writeSelect(c, col)
 	}
 }
 

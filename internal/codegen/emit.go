@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 func emitTable(cfg Config, table schema.Table) []byte {
 	tVar := tableVar(table.Name)
 	tStruct := tableStruct(table.Name)
+	quotedTable := quoteIdent(table.Name)
 
 	imps := newImports()
 	imps.addQuery(cfg.queryImport())
@@ -26,20 +28,24 @@ func emitTable(cfg Config, table schema.Table) []byte {
 	fmt.Fprintf(&b, "package %s\n\n", cfg.Package)
 	imps.write(&b)
 
-	fmt.Fprintf(&b, "type %s struct {\n", tStruct)
+	fmt.Fprintf(&b, "type %s struct {\n\talias string\n", tStruct)
 	for _, col := range table.Columns {
 		fmt.Fprintf(&b, "\t%s %s\n", columnField(col.Name), columnType(table.Name, col.Name))
 	}
 	fmt.Fprintf(&b, "}\n\n")
 
-	fmt.Fprintf(&b, "var %s = %s{\n", tVar, tStruct)
+	ctor := "new" + tVar + "Table"
+	fmt.Fprintf(&b, "func %s(alias string) %s {\n\treturn %s{\n\t\talias: alias,\n", ctor, tStruct, tStruct)
 	for _, col := range table.Columns {
-		fmt.Fprintf(&b, "\t%s: %s{},\n", columnField(col.Name), columnType(table.Name, col.Name))
+		fmt.Fprintf(&b, "\t\t%s: %s{qualifier: alias + %q},\n", columnField(col.Name), columnType(table.Name, col.Name), "."+quoteIdent(col.Name))
 	}
-	fmt.Fprintf(&b, "}\n\n")
+	fmt.Fprintf(&b, "\t}\n}\n\n")
 
-	fmt.Fprintf(&b, "func (%s) SQLName() string { return %q }\n", tStruct, table.Name)
-	fmt.Fprintf(&b, "func (%s) Alias() string { return %q }\n\n", tStruct, table.Name)
+	fmt.Fprintf(&b, "var %s = %s(%q)\n\n", tVar, ctor, quotedTable)
+
+	fmt.Fprintf(&b, "func (%s) SQLName() string { return %q }\n", tStruct, quotedTable)
+	fmt.Fprintf(&b, "func (t %s) Alias() string { return t.alias }\n", tStruct)
+	fmt.Fprintf(&b, "func (t %s) As(alias string) %s { return %s(alias) }\n\n", tStruct, tStruct, ctor)
 
 	fmt.Fprintf(&b, "func (t %s) All() []query.Column {\n\treturn []query.Column{", tStruct)
 	for i, col := range table.Columns {
@@ -67,9 +73,6 @@ func emitModelFile(cfg Config, table schema.Table) []byte {
 	imps := newImports()
 	for _, col := range table.Columns {
 		imps.addGoType(col.Go)
-		if col.Go.IsEnum {
-			// enums live in the same models package
-		}
 	}
 
 	var b strings.Builder
@@ -99,12 +102,10 @@ func modelFieldType(imps *imports, col schema.Column) string {
 
 func emitColumnType(b *strings.Builder, imps *imports, tableName string, col schema.Column) {
 	cType := columnType(tableName, col.Name)
-	qual := tableName + "." + col.Name
 
-	fmt.Fprintf(b, "type %s struct{}\n\n", cType)
-	fmt.Fprintf(b, "func (%s) SQLName() string { return %q }\n", cType, col.Name)
-	fmt.Fprintf(b, "func (%s) Qualifier() string { return %q }\n", cType, qual)
-	fmt.Fprintf(b, "func (%s) Table() query.Table { return %s }\n\n", cType, tableVar(tableName))
+	fmt.Fprintf(b, "type %s struct{ qualifier string }\n\n", cType)
+	fmt.Fprintf(b, "func (%s) SQLName() string { return %q }\n", cType, quoteIdent(col.Name))
+	fmt.Fprintf(b, "func (c %s) Qualifier() string { return c.qualifier }\n\n", cType)
 
 	emitColumnMethods(b, imps, cType, col)
 }
@@ -112,6 +113,8 @@ func emitColumnType(b *strings.Builder, imps *imports, tableName string, col sch
 func emitColumnMethods(b *strings.Builder, imps *imports, cType string, col schema.Column) {
 	caps := columnCapabilities(col)
 	valType := valueMethodType(imps, col.Go)
+
+	fmt.Fprintf(b, "func (c %s) As(alias string) query.Column { return query.ColumnAs(c, alias) }\n", cType)
 
 	for _, op := range []struct{ name, query string }{
 		{"Eq", "Eq"},
@@ -131,6 +134,7 @@ func emitColumnMethods(b *strings.Builder, imps *imports, cType string, col sche
 			fmt.Fprintf(b, "func (c %s) %s(v %s) query.Expr { return query.%s(c, v) }\n", cType, op.name, valType, op.query)
 			fmt.Fprintf(b, "func (c %s) %sCol(other query.Column) query.Expr { return query.%sCol(c, other) }\n", cType, op.name, op.query)
 		}
+		fmt.Fprintf(b, "func (c %s) Between(lo, hi %s) query.Expr { return query.Between(c, lo, hi) }\n", cType, valType)
 	}
 
 	if caps.in {
@@ -167,23 +171,24 @@ func valueMethodType(imps *imports, gt schema.GoType) string {
 }
 
 func emitInMethod(b *strings.Builder, imps *imports, cType string, gt schema.GoType) {
-	inType := inMethodType(imps, gt)
-	fmt.Fprintf(b, "func (c %s) In(vals ...%s) query.Expr {\n", cType, inType)
-	fmt.Fprintf(b, "\targs := make([]any, len(vals))\n")
-	fmt.Fprintf(b, "\tfor i, v := range vals { args[i] = v }\n")
-	fmt.Fprintf(b, "\treturn query.In(c, args...)\n")
-	fmt.Fprintf(b, "}\n\n")
-}
-
-func inMethodType(imps *imports, gt schema.GoType) string {
-	return arrayElemType(imps, gt)
+	inType := arrayElemType(imps, gt)
+	for _, name := range []string{"In", "NotIn"} {
+		fmt.Fprintf(b, "func (c %s) %s(vals ...%s) query.Expr {\n", cType, name, inType)
+		fmt.Fprintf(b, "\targs := make([]any, len(vals))\n")
+		fmt.Fprintf(b, "\tfor i, v := range vals { args[i] = v }\n")
+		fmt.Fprintf(b, "\treturn query.%s(c, args...)\n", name)
+		fmt.Fprintf(b, "}\n\n")
+	}
+	if !gt.IsEnum {
+		fmt.Fprintf(b, "func (c %s) EqAny(vals []%s) query.Expr { return query.EqAny(c, vals) }\n\n", cType, inType)
+	}
 }
 
 func arrayElemType(imps *imports, gt schema.GoType) string {
 	if gt.IsEnum {
 		return imps.modelsTypeExpr(gt)
 	}
-	if strings.HasPrefix(gt.Name, "[]") {
+	if strings.HasPrefix(gt.Name, "[]") && gt.Name != "[]byte" {
 		elem := gt
 		elem.Name = strings.TrimPrefix(gt.Name, "[]")
 		return imps.typeExpr(elem)
@@ -200,18 +205,13 @@ func emitEnums(cfg Config, enums []schema.Enum) []byte {
 	fmt.Fprintf(&b, "// Code generated by typg %s. DO NOT EDIT.\n\n", cfg.TypgVersion)
 	fmt.Fprintf(&b, "package %s\n\n", cfg.modelsPackage())
 
-	names := make([]string, len(enums))
-	for i, e := range enums {
-		names[i] = enumTypeName(e.Name)
-	}
-	sort.Strings(names)
-	byType := map[string]schema.Enum{}
-	for _, e := range enums {
-		byType[enumTypeName(e.Name)] = e
-	}
+	sorted := slices.Clone(enums)
+	slices.SortFunc(sorted, func(a, b schema.Enum) int {
+		return strings.Compare(schema.ExportIdent(a.Name), schema.ExportIdent(b.Name))
+	})
 
-	for _, typeName := range names {
-		e := byType[typeName]
+	for _, e := range sorted {
+		typeName := schema.ExportIdent(e.Name)
 		fmt.Fprintf(&b, "type %s string\n\n", typeName)
 		fmt.Fprintf(&b, "const (\n")
 		for _, label := range e.Values {
@@ -220,10 +220,6 @@ func emitEnums(cfg Config, enums []schema.Enum) []byte {
 		fmt.Fprintf(&b, ")\n\n")
 	}
 	return []byte(b.String())
-}
-
-func enumTypeName(pgName string) string {
-	return exportIdentifier(pgName)
 }
 
 func emitDB(cfg Config) []byte {
@@ -242,7 +238,14 @@ func emitDB(cfg Config) []byte {
 		"func Delete(t query.Table) *query.DeleteBuilder { return query.Delete(t) }",
 		"func With(name string) *query.WithBuilder { return query.With(name) }",
 		"func Col(table, column string) query.Column { return query.Col(table, column) }",
-		"func NewRawCol(sql string, args ...any) query.Column { return query.NewRawCol(sql, args...) }",
+		"func NewRawCol(sql string, args ...any) *query.RawColumn { return query.NewRawCol(sql, args...) }",
+		"func ColumnAs(col query.Column, alias string) query.Column { return query.ColumnAs(col, alias) }",
+		"func Count() *query.RawColumn { return query.Count() }",
+		"func CountOf(col query.Column) *query.RawColumn { return query.CountOf(col) }",
+		"func Sum(col query.Column) *query.RawColumn { return query.Sum(col) }",
+		"func Max(col query.Column) *query.RawColumn { return query.Max(col) }",
+		"func Min(col query.Column) *query.RawColumn { return query.Min(col) }",
+		"func Coalesce(col query.Column, fallback any) *query.RawColumn { return query.Coalesce(col, fallback) }",
 		"func Named(name string) query.Table { return query.Named(name) }",
 		"func Assign(col query.Column, val any) query.Assignment { return query.Assign(col, val) }",
 		"func RawExpr(sql string, args ...any) query.Expr { return query.RawExpr(sql, args...) }",
@@ -259,6 +262,12 @@ func emitDB(cfg Config) []byte {
 		"func Lte(col query.Column, val any) query.Expr { return query.Lte(col, val) }",
 		"func LteCol(col, other query.Column) query.Expr { return query.LteCol(col, other) }",
 		"func In(col query.Column, values ...any) query.Expr { return query.In(col, values...) }",
+		"func NotIn(col query.Column, values ...any) query.Expr { return query.NotIn(col, values...) }",
+		"func Between(col query.Column, lo, hi any) query.Expr { return query.Between(col, lo, hi) }",
+		"func EqAny(col query.Column, values any) query.Expr { return query.EqAny(col, values) }",
+		"func Not(e query.Expr) query.Expr { return query.Not(e) }",
+		"func Exists(sub *query.SelectBuilder) query.Expr { return query.Exists(sub) }",
+		"func InSelect(col query.Column, sub *query.SelectBuilder) query.Expr { return query.InSelect(col, sub) }",
 		"func Like(col query.Column, pattern string) query.Expr { return query.Like(col, pattern) }",
 		"func ILike(col query.Column, pattern string) query.Expr { return query.ILike(col, pattern) }",
 		"func Contains(col query.Column, val any) query.Expr { return query.Contains(col, val) }",
@@ -309,18 +318,12 @@ func (i *imports) modelsTypeExpr(gt schema.GoType) string {
 }
 
 func (i *imports) addGoType(gt schema.GoType) {
-	switch gt.ImportPath {
-	case "":
-		if gt.Name == "time.Time" || strings.HasPrefix(gt.Name, "[]time.Time") {
-			i.add("time")
-		}
+	switch {
+	case gt.ImportPath == "":
+	case isStdImport(gt.ImportPath):
+		i.add(gt.ImportPath)
 	default:
-		if isStdImport(gt.ImportPath) {
-			i.add(gt.ImportPath)
-			return
-		}
-		alias := importName(gt.ImportPath)
-		i.third[alias] = gt.ImportPath
+		i.third[importName(gt.ImportPath)] = gt.ImportPath
 	}
 }
 

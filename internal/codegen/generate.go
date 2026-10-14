@@ -178,21 +178,12 @@ func isQuerySourceFile(name string) bool {
 }
 
 func appendQueryFile(files *[]File, rel string, data []byte) error {
-	content, err := rewriteQueryPackage(data, rel)
-	if err != nil {
-		return err
-	}
-	formatted, err := formatSource(content)
+	formatted, err := formatSource(bytes.TrimSpace(data))
 	if err != nil {
 		return fmt.Errorf("embed %s: %w", rel, err)
 	}
 	*files = append(*files, File{Path: filepath.Join("query", filepath.ToSlash(rel)), Content: formatted})
 	return nil
-}
-
-func rewriteQueryPackage(data []byte, rel string) ([]byte, error) {
-	_ = rel
-	return bytes.TrimSpace(data), nil
 }
 
 func emitVersion(cfg Config) []byte {

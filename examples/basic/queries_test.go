@@ -103,3 +103,26 @@ func TestTypedAssignments(t *testing.T) {
 		t.Fatalf("sql = %q", sql)
 	}
 }
+
+func TestAliasesAndAggregates(t *testing.T) {
+	author := db.Users.As("author")
+	sql, args := db.Select(
+		db.Posts.ID.As("post_id"),
+		author.Name.As("author_name"),
+		db.Count().As("n"),
+	).
+		From(db.Posts).
+		Join(author, author.ID.EqCol(db.Posts.UserID)).
+		Where(db.Posts.ID.Between(1, 100)).
+		GroupBy(db.Posts.ID, author.Name).
+		OrderByDesc(db.Count().As("n")).
+		Build()
+
+	want := "SELECT posts.id AS post_id, author.name AS author_name, count(*) AS n FROM posts INNER JOIN users AS author ON author.id = posts.user_id WHERE posts.id BETWEEN $1 AND $2 GROUP BY posts.id, author.name ORDER BY n DESC"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 2 {
+		t.Fatalf("args = %v", args)
+	}
+}

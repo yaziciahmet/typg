@@ -52,6 +52,7 @@ import (
 	"testing"
 
 	"example.com/app/gen/db"
+	"example.com/app/gen/models"
 )
 
 func TestSmoke(t *testing.T) {
@@ -93,6 +94,30 @@ func TestSmoke(t *testing.T) {
 		Build()
 	if want := "INSERT INTO users (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name"; ups != want {
 		t.Fatalf("upsert = %q", ups)
+	}
+
+	m := db.Users.As("m")
+	selfJoin, _ := db.Select(db.Users.Name, m.Name.As("manager")).
+		From(db.Users).
+		Join(m, m.ID.EqCol(db.Users.ID)).
+		Build()
+	wantSelfJoin := "SELECT users.name, m.name AS manager FROM users INNER JOIN users AS m ON m.id = users.id"
+	if selfJoin != wantSelfJoin {
+		t.Fatalf("self join = %q", selfJoin)
+	}
+
+	grouped, gargs := db.Select(db.Users.Status, db.Count().As("cnt")).
+		From(db.Users).
+		Where(db.Users.ID.Between(1, 100)).
+		Where(db.Users.Status.NotIn(models.UserStatusDeleted)).
+		Where(db.Users.Email.EqAny([]string{"a", "b"})).
+		GroupBy(db.Users.Status).
+		Having(db.Gt(db.Count(), 1)).
+		OrderByDesc(db.Count().As("cnt")).
+		Build()
+	wantGrouped := "SELECT users.status, count(*) AS cnt FROM users WHERE users.id BETWEEN $1 AND $2 AND users.status NOT IN ($3) AND users.email = ANY($4) GROUP BY users.status HAVING count(*) > $5 ORDER BY cnt DESC"
+	if grouped != wantGrouped || len(gargs) != 5 {
+		t.Fatalf("grouped = %q args=%v", grouped, gargs)
 	}
 
 	except, _ := db.Select(db.Posts.AllExcept(db.Posts.Title, db.Posts.Published)...).From(db.Posts).Build()
@@ -164,7 +189,19 @@ func TestGenerateUsersFileContents(t *testing.T) {
 	}
 	tableBody := string(users)
 	for _, want := range []string{
-		"var Users = usersTable",
+		"var Users = newUsersTable(\"users\")",
+		"func (t usersTable) Alias() string",
+		"func (t usersTable) As(alias string) usersTable",
+		"return newUsersTable(alias)",
+		"type usersIDCol struct{ qualifier string }",
+		"func (c usersIDCol) Qualifier() string",
+		"usersIDCol{qualifier: alias + \".id\"}",
+		"func (c usersIDCol) As(alias string) query.Column",
+		"func (c usersIDCol) NotIn(vals ...int64) query.Expr",
+		"func (c usersIDCol) EqAny(vals []int64) query.Expr",
+		"func (c usersStatusCol) NotIn(vals ...models.UserStatus) query.Expr",
+		"func (c usersIDCol) Between(lo, hi int64) query.Expr",
+		"func (c usersEmailCol) Between(lo, hi string) query.Expr",
 		"usersIDCol",
 		"func (c usersIDCol) Eq(v int64)",
 		"func (c usersIDCol) EqCol(other query.Column)",
@@ -196,6 +233,11 @@ func TestGenerateUsersFileContents(t *testing.T) {
 		"func (c usersMetaCol) Gt(",
 		"func (c usersIDCol) IsNull(",
 		"func (c usersEmailCol) NotNull(",
+		"func (c usersStatusCol) EqAny(",
+		"func (c usersTagsCol) NotIn(",
+		"func (c usersTagsCol) EqAny(",
+		"func (c usersTagsCol) Between(",
+		"func (c usersMetaCol) Between(",
 		"func (c usersIDCol) SetNull(",
 		"func (c usersEmailCol) SetNull(",
 	} {

@@ -94,9 +94,3 @@ func TestWriteInterpolatedEscapedQuestionMark(t *testing.T) {
 		})
 	}
 }
-
-func TestRawColumnTableIsNotNil(t *testing.T) {
-	if NewRawCol("count(*)").Table() == nil {
-		t.Fatal("Table() must not be nil")
-	}
-}
