@@ -102,7 +102,7 @@ func (s *SelectBuilder) Where(e Expr) *SelectBuilder {
 // GroupBy adds GROUP BY columns.
 func (s *SelectBuilder) GroupBy(cols ...Column) *SelectBuilder {
 	for _, col := range cols {
-		s.groupBy = append(s.groupBy, columnFrag{col: col})
+		s.groupBy = append(s.groupBy, exprFrag{col: col})
 	}
 	return s
 }
@@ -189,7 +189,7 @@ func (s *SelectBuilder) compile(c *Compiler) {
 			if i > 0 {
 				c.Write(", ")
 			}
-			columnFrag{col: o.col}.compile(c)
+			writeOrder(c, o.col)
 			if o.desc {
 				c.Write(" DESC")
 			}

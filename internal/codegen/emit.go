@@ -26,20 +26,24 @@ func emitTable(cfg Config, table schema.Table) []byte {
 	fmt.Fprintf(&b, "package %s\n\n", cfg.Package)
 	imps.write(&b)
 
-	fmt.Fprintf(&b, "type %s struct {\n", tStruct)
+	fmt.Fprintf(&b, "type %s struct {\n\talias string\n", tStruct)
 	for _, col := range table.Columns {
 		fmt.Fprintf(&b, "\t%s %s\n", columnField(col.Name), columnType(table.Name, col.Name))
 	}
 	fmt.Fprintf(&b, "}\n\n")
 
-	fmt.Fprintf(&b, "var %s = %s{\n", tVar, tStruct)
+	ctor := "new" + tVar + "Table"
+	fmt.Fprintf(&b, "func %s(alias string) %s {\n\treturn %s{\n\t\talias: alias,\n", ctor, tStruct, tStruct)
 	for _, col := range table.Columns {
-		fmt.Fprintf(&b, "\t%s: %s{},\n", columnField(col.Name), columnType(table.Name, col.Name))
+		fmt.Fprintf(&b, "\t\t%s: %s{alias: alias},\n", columnField(col.Name), columnType(table.Name, col.Name))
 	}
-	fmt.Fprintf(&b, "}\n\n")
+	fmt.Fprintf(&b, "\t}\n}\n\n")
+
+	fmt.Fprintf(&b, "var %s = %s(%q)\n\n", tVar, ctor, table.Name)
 
 	fmt.Fprintf(&b, "func (%s) SQLName() string { return %q }\n", tStruct, table.Name)
-	fmt.Fprintf(&b, "func (%s) Alias() string { return %q }\n\n", tStruct, table.Name)
+	fmt.Fprintf(&b, "func (t %s) Alias() string { return t.alias }\n", tStruct)
+	fmt.Fprintf(&b, "func (t %s) As(alias string) %s { return %s(alias) }\n\n", tStruct, tStruct, ctor)
 
 	fmt.Fprintf(&b, "func (t %s) All() []query.Column {\n\treturn []query.Column{", tStruct)
 	for i, col := range table.Columns {
@@ -99,12 +103,10 @@ func modelFieldType(imps *imports, col schema.Column) string {
 
 func emitColumnType(b *strings.Builder, imps *imports, tableName string, col schema.Column) {
 	cType := columnType(tableName, col.Name)
-	qual := tableName + "." + col.Name
 
-	fmt.Fprintf(b, "type %s struct{}\n\n", cType)
+	fmt.Fprintf(b, "type %s struct{ alias string }\n\n", cType)
 	fmt.Fprintf(b, "func (%s) SQLName() string { return %q }\n", cType, col.Name)
-	fmt.Fprintf(b, "func (%s) Qualifier() string { return %q }\n", cType, qual)
-	fmt.Fprintf(b, "func (%s) Table() query.Table { return %s }\n\n", cType, tableVar(tableName))
+	fmt.Fprintf(b, "func (c %s) Qualifier() string { return c.alias + %q }\n\n", cType, "."+col.Name)
 
 	emitColumnMethods(b, imps, cType, col)
 }
@@ -112,6 +114,8 @@ func emitColumnType(b *strings.Builder, imps *imports, tableName string, col sch
 func emitColumnMethods(b *strings.Builder, imps *imports, cType string, col schema.Column) {
 	caps := columnCapabilities(col)
 	valType := valueMethodType(imps, col.Go)
+
+	fmt.Fprintf(b, "func (c %s) As(alias string) query.Column { return query.ColumnAs(c, alias) }\n", cType)
 
 	for _, op := range []struct{ name, query string }{
 		{"Eq", "Eq"},
@@ -131,6 +135,7 @@ func emitColumnMethods(b *strings.Builder, imps *imports, cType string, col sche
 			fmt.Fprintf(b, "func (c %s) %s(v %s) query.Expr { return query.%s(c, v) }\n", cType, op.name, valType, op.query)
 			fmt.Fprintf(b, "func (c %s) %sCol(other query.Column) query.Expr { return query.%sCol(c, other) }\n", cType, op.name, op.query)
 		}
+		fmt.Fprintf(b, "func (c %s) Between(lo, hi %s) query.Expr { return query.Between(c, lo, hi) }\n", cType, valType)
 	}
 
 	if caps.in {
@@ -168,11 +173,16 @@ func valueMethodType(imps *imports, gt schema.GoType) string {
 
 func emitInMethod(b *strings.Builder, imps *imports, cType string, gt schema.GoType) {
 	inType := inMethodType(imps, gt)
-	fmt.Fprintf(b, "func (c %s) In(vals ...%s) query.Expr {\n", cType, inType)
-	fmt.Fprintf(b, "\targs := make([]any, len(vals))\n")
-	fmt.Fprintf(b, "\tfor i, v := range vals { args[i] = v }\n")
-	fmt.Fprintf(b, "\treturn query.In(c, args...)\n")
-	fmt.Fprintf(b, "}\n\n")
+	for _, name := range []string{"In", "NotIn"} {
+		fmt.Fprintf(b, "func (c %s) %s(vals ...%s) query.Expr {\n", cType, name, inType)
+		fmt.Fprintf(b, "\targs := make([]any, len(vals))\n")
+		fmt.Fprintf(b, "\tfor i, v := range vals { args[i] = v }\n")
+		fmt.Fprintf(b, "\treturn query.%s(c, args...)\n", name)
+		fmt.Fprintf(b, "}\n\n")
+	}
+	if !gt.IsEnum {
+		fmt.Fprintf(b, "func (c %s) EqAny(vals []%s) query.Expr { return query.EqAny(c, vals) }\n\n", cType, inType)
+	}
 }
 
 func inMethodType(imps *imports, gt schema.GoType) string {
@@ -242,7 +252,14 @@ func emitDB(cfg Config) []byte {
 		"func Delete(t query.Table) *query.DeleteBuilder { return query.Delete(t) }",
 		"func With(name string) *query.WithBuilder { return query.With(name) }",
 		"func Col(table, column string) query.Column { return query.Col(table, column) }",
-		"func NewRawCol(sql string, args ...any) query.Column { return query.NewRawCol(sql, args...) }",
+		"func NewRawCol(sql string, args ...any) *query.RawColumn { return query.NewRawCol(sql, args...) }",
+		"func ColumnAs(col query.Column, alias string) query.Column { return query.ColumnAs(col, alias) }",
+		"func Count() *query.RawColumn { return query.Count() }",
+		"func CountOf(col query.Column) *query.RawColumn { return query.CountOf(col) }",
+		"func Sum(col query.Column) *query.RawColumn { return query.Sum(col) }",
+		"func Max(col query.Column) *query.RawColumn { return query.Max(col) }",
+		"func Min(col query.Column) *query.RawColumn { return query.Min(col) }",
+		"func Coalesce(col query.Column, fallback any) *query.RawColumn { return query.Coalesce(col, fallback) }",
 		"func Named(name string) query.Table { return query.Named(name) }",
 		"func Assign(col query.Column, val any) query.Assignment { return query.Assign(col, val) }",
 		"func RawExpr(sql string, args ...any) query.Expr { return query.RawExpr(sql, args...) }",
@@ -259,6 +276,12 @@ func emitDB(cfg Config) []byte {
 		"func Lte(col query.Column, val any) query.Expr { return query.Lte(col, val) }",
 		"func LteCol(col, other query.Column) query.Expr { return query.LteCol(col, other) }",
 		"func In(col query.Column, values ...any) query.Expr { return query.In(col, values...) }",
+		"func NotIn(col query.Column, values ...any) query.Expr { return query.NotIn(col, values...) }",
+		"func Between(col query.Column, lo, hi any) query.Expr { return query.Between(col, lo, hi) }",
+		"func EqAny(col query.Column, values any) query.Expr { return query.EqAny(col, values) }",
+		"func Not(e query.Expr) query.Expr { return query.Not(e) }",
+		"func Exists(sub *query.SelectBuilder) query.Expr { return query.Exists(sub) }",
+		"func InSelect(col query.Column, sub *query.SelectBuilder) query.Expr { return query.InSelect(col, sub) }",
 		"func Like(col query.Column, pattern string) query.Expr { return query.Like(col, pattern) }",
 		"func ILike(col query.Column, pattern string) query.Expr { return query.ILike(col, pattern) }",
 		"func Contains(col query.Column, val any) query.Expr { return query.Contains(col, val) }",

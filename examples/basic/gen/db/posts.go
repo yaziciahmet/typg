@@ -8,6 +8,7 @@ import (
 )
 
 type postsTable struct {
+	alias     string
 	ID        postsIDCol
 	UserID    postsUserIDCol
 	Title     postsTitleCol
@@ -15,16 +16,22 @@ type postsTable struct {
 	CreatedAt postsCreatedAtCol
 }
 
-var Posts = postsTable{
-	ID:        postsIDCol{},
-	UserID:    postsUserIDCol{},
-	Title:     postsTitleCol{},
-	Published: postsPublishedCol{},
-	CreatedAt: postsCreatedAtCol{},
+func newPostsTable(alias string) postsTable {
+	return postsTable{
+		alias:     alias,
+		ID:        postsIDCol{alias: alias},
+		UserID:    postsUserIDCol{alias: alias},
+		Title:     postsTitleCol{alias: alias},
+		Published: postsPublishedCol{alias: alias},
+		CreatedAt: postsCreatedAtCol{alias: alias},
+	}
 }
 
-func (postsTable) SQLName() string { return "posts" }
-func (postsTable) Alias() string   { return "posts" }
+var Posts = newPostsTable("posts")
+
+func (postsTable) SQLName() string              { return "posts" }
+func (t postsTable) Alias() string              { return t.alias }
+func (t postsTable) As(alias string) postsTable { return newPostsTable(alias) }
 
 func (t postsTable) All() []query.Column {
 	return []query.Column{t.ID, t.UserID, t.Title, t.Published, t.CreatedAt}
@@ -38,12 +45,12 @@ func (t postsTable) Insert() *query.InsertBuilder { return query.Insert(t) }
 func (t postsTable) Update() *query.UpdateBuilder { return query.Update(t) }
 func (t postsTable) Delete() *query.DeleteBuilder { return query.Delete(t) }
 
-type postsIDCol struct{}
+type postsIDCol struct{ alias string }
 
-func (postsIDCol) SQLName() string    { return "id" }
-func (postsIDCol) Qualifier() string  { return "posts.id" }
-func (postsIDCol) Table() query.Table { return Posts }
+func (postsIDCol) SQLName() string     { return "id" }
+func (c postsIDCol) Qualifier() string { return c.alias + ".id" }
 
+func (c postsIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
 func (c postsIDCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c postsIDCol) Ne(v int64) query.Expr                { return query.Ne(c, v) }
@@ -56,6 +63,7 @@ func (c postsIDCol) Lt(v int64) query.Expr                { return query.Lt(c, v
 func (c postsIDCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c postsIDCol) Lte(v int64) query.Expr               { return query.Lte(c, v) }
 func (c postsIDCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c postsIDCol) Between(lo, hi int64) query.Expr      { return query.Between(c, lo, hi) }
 func (c postsIDCol) In(vals ...int64) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -64,18 +72,28 @@ func (c postsIDCol) In(vals ...int64) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c postsIDCol) NotIn(vals ...int64) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c postsIDCol) EqAny(vals []int64) query.Expr { return query.EqAny(c, vals) }
+
 func (c postsIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
 func (c postsIDCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
 }
 func (c postsIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsUserIDCol struct{}
+type postsUserIDCol struct{ alias string }
 
-func (postsUserIDCol) SQLName() string    { return "user_id" }
-func (postsUserIDCol) Qualifier() string  { return "posts.user_id" }
-func (postsUserIDCol) Table() query.Table { return Posts }
+func (postsUserIDCol) SQLName() string     { return "user_id" }
+func (c postsUserIDCol) Qualifier() string { return c.alias + ".user_id" }
 
+func (c postsUserIDCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsUserIDCol) Eq(v int64) query.Expr                { return query.Eq(c, v) }
 func (c postsUserIDCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c postsUserIDCol) Ne(v int64) query.Expr                { return query.Ne(c, v) }
@@ -88,6 +106,7 @@ func (c postsUserIDCol) Lt(v int64) query.Expr                { return query.Lt(
 func (c postsUserIDCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c postsUserIDCol) Lte(v int64) query.Expr               { return query.Lte(c, v) }
 func (c postsUserIDCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c postsUserIDCol) Between(lo, hi int64) query.Expr      { return query.Between(c, lo, hi) }
 func (c postsUserIDCol) In(vals ...int64) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -96,18 +115,28 @@ func (c postsUserIDCol) In(vals ...int64) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c postsUserIDCol) NotIn(vals ...int64) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c postsUserIDCol) EqAny(vals []int64) query.Expr { return query.EqAny(c, vals) }
+
 func (c postsUserIDCol) Set(v int64) query.Assignment { return query.Assign(c, v) }
 func (c postsUserIDCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
 }
 func (c postsUserIDCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsTitleCol struct{}
+type postsTitleCol struct{ alias string }
 
-func (postsTitleCol) SQLName() string    { return "title" }
-func (postsTitleCol) Qualifier() string  { return "posts.title" }
-func (postsTitleCol) Table() query.Table { return Posts }
+func (postsTitleCol) SQLName() string     { return "title" }
+func (c postsTitleCol) Qualifier() string { return c.alias + ".title" }
 
+func (c postsTitleCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsTitleCol) Eq(v string) query.Expr               { return query.Eq(c, v) }
 func (c postsTitleCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c postsTitleCol) Ne(v string) query.Expr               { return query.Ne(c, v) }
@@ -120,6 +149,7 @@ func (c postsTitleCol) Lt(v string) query.Expr               { return query.Lt(c
 func (c postsTitleCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c postsTitleCol) Lte(v string) query.Expr              { return query.Lte(c, v) }
 func (c postsTitleCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c postsTitleCol) Between(lo, hi string) query.Expr     { return query.Between(c, lo, hi) }
 func (c postsTitleCol) In(vals ...string) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -127,6 +157,16 @@ func (c postsTitleCol) In(vals ...string) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c postsTitleCol) NotIn(vals ...string) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c postsTitleCol) EqAny(vals []string) query.Expr { return query.EqAny(c, vals) }
 
 func (c postsTitleCol) Like(pattern string) query.Expr  { return query.Like(c, pattern) }
 func (c postsTitleCol) ILike(pattern string) query.Expr { return query.ILike(c, pattern) }
@@ -136,12 +176,12 @@ func (c postsTitleCol) SetExpr(sql string, args ...any) query.Assignment {
 }
 func (c postsTitleCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsPublishedCol struct{}
+type postsPublishedCol struct{ alias string }
 
-func (postsPublishedCol) SQLName() string    { return "published" }
-func (postsPublishedCol) Qualifier() string  { return "posts.published" }
-func (postsPublishedCol) Table() query.Table { return Posts }
+func (postsPublishedCol) SQLName() string     { return "published" }
+func (c postsPublishedCol) Qualifier() string { return c.alias + ".published" }
 
+func (c postsPublishedCol) As(alias string) query.Column        { return query.ColumnAs(c, alias) }
 func (c postsPublishedCol) Eq(v bool) query.Expr                { return query.Eq(c, v) }
 func (c postsPublishedCol) EqCol(other query.Column) query.Expr { return query.EqCol(c, other) }
 func (c postsPublishedCol) Ne(v bool) query.Expr                { return query.Ne(c, v) }
@@ -154,18 +194,28 @@ func (c postsPublishedCol) In(vals ...bool) query.Expr {
 	return query.In(c, args...)
 }
 
+func (c postsPublishedCol) NotIn(vals ...bool) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c postsPublishedCol) EqAny(vals []bool) query.Expr { return query.EqAny(c, vals) }
+
 func (c postsPublishedCol) Set(v bool) query.Assignment { return query.Assign(c, v) }
 func (c postsPublishedCol) SetExpr(sql string, args ...any) query.Assignment {
 	return query.AssignExpr(c, sql, args...)
 }
 func (c postsPublishedCol) SetExcluded() query.Assignment { return query.AssignExcluded(c) }
 
-type postsCreatedAtCol struct{}
+type postsCreatedAtCol struct{ alias string }
 
-func (postsCreatedAtCol) SQLName() string    { return "created_at" }
-func (postsCreatedAtCol) Qualifier() string  { return "posts.created_at" }
-func (postsCreatedAtCol) Table() query.Table { return Posts }
+func (postsCreatedAtCol) SQLName() string     { return "created_at" }
+func (c postsCreatedAtCol) Qualifier() string { return c.alias + ".created_at" }
 
+func (c postsCreatedAtCol) As(alias string) query.Column         { return query.ColumnAs(c, alias) }
 func (c postsCreatedAtCol) Eq(v time.Time) query.Expr            { return query.Eq(c, v) }
 func (c postsCreatedAtCol) EqCol(other query.Column) query.Expr  { return query.EqCol(c, other) }
 func (c postsCreatedAtCol) Ne(v time.Time) query.Expr            { return query.Ne(c, v) }
@@ -178,6 +228,7 @@ func (c postsCreatedAtCol) Lt(v time.Time) query.Expr            { return query.
 func (c postsCreatedAtCol) LtCol(other query.Column) query.Expr  { return query.LtCol(c, other) }
 func (c postsCreatedAtCol) Lte(v time.Time) query.Expr           { return query.Lte(c, v) }
 func (c postsCreatedAtCol) LteCol(other query.Column) query.Expr { return query.LteCol(c, other) }
+func (c postsCreatedAtCol) Between(lo, hi time.Time) query.Expr  { return query.Between(c, lo, hi) }
 func (c postsCreatedAtCol) In(vals ...time.Time) query.Expr {
 	args := make([]any, len(vals))
 	for i, v := range vals {
@@ -185,6 +236,16 @@ func (c postsCreatedAtCol) In(vals ...time.Time) query.Expr {
 	}
 	return query.In(c, args...)
 }
+
+func (c postsCreatedAtCol) NotIn(vals ...time.Time) query.Expr {
+	args := make([]any, len(vals))
+	for i, v := range vals {
+		args[i] = v
+	}
+	return query.NotIn(c, args...)
+}
+
+func (c postsCreatedAtCol) EqAny(vals []time.Time) query.Expr { return query.EqAny(c, vals) }
 
 func (c postsCreatedAtCol) Set(v time.Time) query.Assignment { return query.Assign(c, v) }
 func (c postsCreatedAtCol) SetExpr(sql string, args ...any) query.Assignment {

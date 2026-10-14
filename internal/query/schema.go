@@ -8,11 +8,11 @@ type Table interface {
 	Alias() string
 }
 
-// Column identifies a table column. Codegen implements this for each column.
+// Column identifies a table column or a column-like expression. Codegen
+// implements it for each table column.
 type Column interface {
 	Qualifier() string
 	SQLName() string
-	Table() Table
 }
 
 type qualColumn struct {
@@ -36,28 +36,72 @@ func Col(table, column string) Column {
 
 func (q qualColumn) SQLName() string   { return q.column }
 func (q qualColumn) Qualifier() string { return q.table + "." + q.column }
-func (q qualColumn) Table() Table      { return rawTable(q.table) }
 
-// RawColumn is a select-list expression with ? placeholders replaced by numbered
-// args at compile time. Use NewRawCol; do not use in WHERE/HAVING/JOIN ON.
-// Write ?? for a literal question mark.
+// RawColumn is a SQL expression with ? placeholders replaced by numbered args
+// at compile time, usable wherever a column is: select list, WHERE, HAVING,
+// GROUP BY, ORDER BY. Write ?? for a literal question mark. Use As to name it
+// in the select list; ORDER BY then refers to the alias.
 type RawColumn struct {
-	sql  string
-	args []any
+	sql   string
+	args  []any
+	alias string
 }
 
-// NewRawCol builds a raw SQL select-list entry. Include AS alias in sql when needed.
+// NewRawCol builds a raw SQL expression. Prefer As over writing AS in sql.
 func NewRawCol(sql string, args ...any) *RawColumn {
 	return &RawColumn{sql: sql, args: args}
 }
 
+// As returns a copy that renders as "expr AS alias" in the select list.
+func (r *RawColumn) As(alias string) *RawColumn {
+	c := *r
+	c.alias = alias
+	return &c
+}
+
 func (r *RawColumn) SQLName() string   { return r.sql }
 func (r *RawColumn) Qualifier() string { return r.sql }
-func (r *RawColumn) Table() Table      { return rawTable("") }
 
-func (r *RawColumn) compile(c *Compiler) {
+func (r *RawColumn) compileExpr(c *Compiler) {
 	writeInterpolated(c, r.sql, r.args)
 }
+
+func (r *RawColumn) compileSelect(c *Compiler) {
+	r.compileExpr(c)
+	if r.alias != "" {
+		c.Write(" AS ")
+		c.Write(r.alias)
+	}
+}
+
+func (r *RawColumn) aliasName() string { return r.alias }
+
+type aliasedColumn struct {
+	col   Column
+	alias string
+}
+
+// ColumnAs renders col as "col AS alias" in the select list. Elsewhere it
+// behaves as col, except ORDER BY, which refers to the alias.
+func ColumnAs(col Column, alias string) Column {
+	if r, ok := col.(*RawColumn); ok {
+		return r.As(alias)
+	}
+	return aliasedColumn{col: col, alias: alias}
+}
+
+func (a aliasedColumn) SQLName() string   { return a.col.SQLName() }
+func (a aliasedColumn) Qualifier() string { return a.col.Qualifier() }
+
+func (a aliasedColumn) compileExpr(c *Compiler) { writeExpr(c, a.col) }
+
+func (a aliasedColumn) compileSelect(c *Compiler) {
+	writeExpr(c, a.col)
+	c.Write(" AS ")
+	c.Write(a.alias)
+}
+
+func (a aliasedColumn) aliasName() string { return a.alias }
 
 type rawTable string
 

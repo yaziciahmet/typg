@@ -49,9 +49,42 @@ func (c *Compiler) Args() []any {
 	return c.args
 }
 
+type exprCompiler interface{ compileExpr(c *Compiler) }
+
+type selectCompiler interface{ compileSelect(c *Compiler) }
+
+type aliased interface{ aliasName() string }
+
+// writeExpr renders col as an expression, for WHERE, HAVING, ON and GROUP BY.
+func writeExpr(c *Compiler, col Column) {
+	if e, ok := col.(exprCompiler); ok {
+		e.compileExpr(c)
+		return
+	}
+	c.Write(col.Qualifier())
+}
+
+// writeSelect renders col for the select list and RETURNING, including its alias.
+func writeSelect(c *Compiler, col Column) {
+	if s, ok := col.(selectCompiler); ok {
+		s.compileSelect(c)
+		return
+	}
+	writeExpr(c, col)
+}
+
+// writeOrder renders col for ORDER BY, which refers to an alias when there is one.
+func writeOrder(c *Compiler, col Column) {
+	if a, ok := col.(aliased); ok && a.aliasName() != "" {
+		c.Write(a.aliasName())
+		return
+	}
+	writeExpr(c, col)
+}
+
 func writeArg(c *Compiler, v any) {
 	if col, ok := v.(Column); ok {
-		c.Write(col.Qualifier())
+		writeExpr(c, col)
 		return
 	}
 	c.Write(c.Arg(v))
@@ -110,11 +143,15 @@ type columnFrag struct {
 }
 
 func (f columnFrag) compile(c *Compiler) {
-	if cc, ok := f.col.(interface{ compile(c *Compiler) }); ok {
-		cc.compile(c)
-		return
-	}
-	c.Write(f.col.Qualifier())
+	writeSelect(c, f.col)
+}
+
+type exprFrag struct {
+	col Column
+}
+
+func (f exprFrag) compile(c *Compiler) {
+	writeExpr(c, f.col)
 }
 
 type tableFrag struct {

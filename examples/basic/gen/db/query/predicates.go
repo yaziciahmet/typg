@@ -67,6 +67,7 @@ func (o orExpr) compile(c *Compiler) {
 type inExpr struct {
 	col  Column
 	vals []any
+	neg  bool
 }
 
 // In builds col IN ($1, $2, ...). With no values it renders FALSE.
@@ -74,13 +75,26 @@ func In(col Column, values ...any) Expr {
 	return inExpr{col: col, vals: values}
 }
 
+// NotIn builds col NOT IN ($1, $2, ...). With no values it renders TRUE.
+func NotIn(col Column, values ...any) Expr {
+	return inExpr{col: col, vals: values, neg: true}
+}
+
 func (e inExpr) compile(c *Compiler) {
 	if len(e.vals) == 0 {
-		c.Write("FALSE")
+		if e.neg {
+			c.Write("TRUE")
+		} else {
+			c.Write("FALSE")
+		}
 		return
 	}
-	c.Write(e.col.Qualifier())
-	c.Write(" IN (")
+	writeExpr(c, e.col)
+	if e.neg {
+		c.Write(" NOT IN (")
+	} else {
+		c.Write(" IN (")
+	}
 	for i, v := range e.vals {
 		if i > 0 {
 			c.Write(", ")
@@ -107,7 +121,7 @@ func ILike(col Column, pattern string) Expr {
 }
 
 func (e likeExpr) compile(c *Compiler) {
-	c.Write(e.col.Qualifier())
+	writeExpr(c, e.col)
 	if e.ilike {
 		c.Write(" ILIKE ")
 	} else {
@@ -169,12 +183,12 @@ func Lte(col Column, val any) Expr { return compareVal(col, "<=", val) }
 func LteCol(col, other Column) Expr { return compareCol(col, "<=", other) }
 
 func (e compareExpr) compile(c *Compiler) {
-	c.Write(e.left.Qualifier())
+	writeExpr(c, e.left)
 	c.Write(" ")
 	c.Write(e.op)
 	c.Write(" ")
 	if e.isCol {
-		c.Write(e.rightCol.Qualifier())
+		writeExpr(c, e.rightCol)
 	} else {
 		c.Write(c.Arg(e.rightVal))
 	}
@@ -192,7 +206,7 @@ func IsNull(col Column) Expr { return nullExpr{col: col} }
 func NotNull(col Column) Expr { return nullExpr{col: col, neg: true} }
 
 func (e nullExpr) compile(c *Compiler) {
-	c.Write(e.col.Qualifier())
+	writeExpr(c, e.col)
 	if e.neg {
 		c.Write(" IS NOT NULL")
 	} else {
@@ -211,8 +225,86 @@ func Contains(col Column, val any) Expr {
 }
 
 func (e containsExpr) compile(c *Compiler) {
-	c.Write(e.col.Qualifier())
+	writeExpr(c, e.col)
 	c.Write(" @> ARRAY[")
 	c.Write(c.Arg(e.val))
 	c.Write("]")
+}
+
+type notExpr struct {
+	expr Expr
+}
+
+// Not builds NOT (expr).
+func Not(e Expr) Expr { return notExpr{expr: e} }
+
+func (n notExpr) compile(c *Compiler) {
+	c.Write("NOT (")
+	n.expr.compile(c)
+	c.Write(")")
+}
+
+type betweenExpr struct {
+	col    Column
+	lo, hi any
+}
+
+// Between builds col BETWEEN lo AND hi.
+func Between(col Column, lo, hi any) Expr {
+	return betweenExpr{col: col, lo: lo, hi: hi}
+}
+
+func (e betweenExpr) compile(c *Compiler) {
+	writeExpr(c, e.col)
+	c.Write(" BETWEEN ")
+	writeArg(c, e.lo)
+	c.Write(" AND ")
+	writeArg(c, e.hi)
+}
+
+type eqAnyExpr struct {
+	col    Column
+	values any
+}
+
+// EqAny builds col = ANY($1), binding values (a slice) as one array argument.
+func EqAny(col Column, values any) Expr {
+	return eqAnyExpr{col: col, values: values}
+}
+
+func (e eqAnyExpr) compile(c *Compiler) {
+	writeExpr(c, e.col)
+	c.Write(" = ANY(")
+	c.Write(c.Arg(e.values))
+	c.Write(")")
+}
+
+type existsExpr struct {
+	sub *SelectBuilder
+}
+
+// Exists builds EXISTS (subquery).
+func Exists(sub *SelectBuilder) Expr { return existsExpr{sub: sub} }
+
+func (e existsExpr) compile(c *Compiler) {
+	c.Write("EXISTS (")
+	e.sub.compile(c)
+	c.Write(")")
+}
+
+type inSelectExpr struct {
+	col Column
+	sub *SelectBuilder
+}
+
+// InSelect builds col IN (subquery).
+func InSelect(col Column, sub *SelectBuilder) Expr {
+	return inSelectExpr{col: col, sub: sub}
+}
+
+func (e inSelectExpr) compile(c *Compiler) {
+	writeExpr(c, e.col)
+	c.Write(" IN (")
+	e.sub.compile(c)
+	c.Write(")")
 }
