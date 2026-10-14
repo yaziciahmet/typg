@@ -58,7 +58,7 @@ func writeArg(c *Compiler, v any) {
 }
 
 func writeInterpolated(c *Compiler, sql string, args []any) {
-	if len(args) == 0 {
+	if len(args) == 0 && !strings.Contains(sql, "??") {
 		c.Write(sql)
 		return
 	}
@@ -66,7 +66,16 @@ func writeInterpolated(c *Compiler, sql string, args []any) {
 	argIdx := 0
 	start := 0
 	for i := 0; i < len(sql); i++ {
-		if sql[i] == '?' && argIdx < len(args) {
+		if sql[i] != '?' {
+			continue
+		}
+		if i+1 < len(sql) && sql[i+1] == '?' {
+			c.Write(sql[start : i+1])
+			start = i + 2
+			i++
+			continue
+		}
+		if argIdx < len(args) {
 			if i > start {
 				c.Write(sql[start:i])
 			}
@@ -81,6 +90,7 @@ func writeInterpolated(c *Compiler, sql string, args []any) {
 }
 
 // Raw is a SQL fragment with ? placeholders replaced by numbered args.
+// Write ?? for a literal question mark.
 type Raw struct {
 	sql  string
 	args []any
@@ -165,12 +175,38 @@ func compileWhere(c *Compiler, wheres []Expr) {
 		return
 	}
 	c.Write(" WHERE ")
-	for i, w := range wheres {
+	compileConjunction(c, wheres)
+}
+
+func compileHaving(c *Compiler, having []Expr) {
+	if len(having) == 0 {
+		return
+	}
+	c.Write(" HAVING ")
+	compileConjunction(c, having)
+}
+
+func compileConjunction(c *Compiler, exprs []Expr) {
+	for i, e := range exprs {
 		if i > 0 {
 			c.Write(" AND ")
 		}
-		w.compile(c)
+		if len(exprs) > 1 && needsParens(e) {
+			c.Write("(")
+			e.compile(c)
+			c.Write(")")
+			continue
+		}
+		e.compile(c)
 	}
+}
+
+func needsParens(e Expr) bool {
+	switch e.(type) {
+	case orExpr, Raw:
+		return true
+	}
+	return false
 }
 
 func compileReturning(c *Compiler, returns []fragment) {

@@ -9,7 +9,7 @@ type joinClause struct {
 }
 
 type orderClause struct {
-	expr string
+	col  Column
 	desc bool
 }
 
@@ -116,7 +116,7 @@ func (s *SelectBuilder) Having(e Expr) *SelectBuilder {
 // OrderByAsc adds ascending ORDER BY columns.
 func (s *SelectBuilder) OrderByAsc(cols ...Column) *SelectBuilder {
 	for _, col := range cols {
-		s.orderBy = append(s.orderBy, orderClause{expr: col.Qualifier(), desc: false})
+		s.orderBy = append(s.orderBy, orderClause{col: col})
 	}
 	return s
 }
@@ -124,7 +124,7 @@ func (s *SelectBuilder) OrderByAsc(cols ...Column) *SelectBuilder {
 // OrderByDesc adds descending ORDER BY columns.
 func (s *SelectBuilder) OrderByDesc(cols ...Column) *SelectBuilder {
 	for _, col := range cols {
-		s.orderBy = append(s.orderBy, orderClause{expr: col.Qualifier(), desc: true})
+		s.orderBy = append(s.orderBy, orderClause{col: col, desc: true})
 	}
 	return s
 }
@@ -182,22 +182,14 @@ func (s *SelectBuilder) compile(c *Compiler) {
 			col.compile(c)
 		}
 	}
-	if len(s.having) > 0 {
-		c.Write(" HAVING ")
-		for i, h := range s.having {
-			if i > 0 {
-				c.Write(" AND ")
-			}
-			h.compile(c)
-		}
-	}
+	compileHaving(c, s.having)
 	if len(s.orderBy) > 0 {
 		c.Write(" ORDER BY ")
 		for i, o := range s.orderBy {
 			if i > 0 {
 				c.Write(", ")
 			}
-			c.Write(o.expr)
+			columnFrag{col: o.col}.compile(c)
 			if o.desc {
 				c.Write(" DESC")
 			}

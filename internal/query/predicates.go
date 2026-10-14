@@ -4,8 +4,15 @@ type andExpr struct {
 	exprs []Expr
 }
 
-// And joins expressions with AND.
+// And joins expressions with AND. With no expressions it renders TRUE, the
+// identity of AND.
 func And(exprs ...Expr) Expr {
+	switch len(exprs) {
+	case 0:
+		return boolExpr(true)
+	case 1:
+		return exprs[0]
+	}
 	return andExpr{exprs: exprs}
 }
 
@@ -24,9 +31,26 @@ type orExpr struct {
 	exprs []Expr
 }
 
-// Or joins expressions with OR.
+// Or joins expressions with OR. With no expressions it renders FALSE, the
+// identity of OR.
 func Or(exprs ...Expr) Expr {
+	switch len(exprs) {
+	case 0:
+		return boolExpr(false)
+	case 1:
+		return exprs[0]
+	}
 	return orExpr{exprs: exprs}
+}
+
+type boolExpr bool
+
+func (b boolExpr) compile(c *Compiler) {
+	if b {
+		c.Write("TRUE")
+		return
+	}
+	c.Write("FALSE")
 }
 
 func (o orExpr) compile(c *Compiler) {
@@ -45,12 +69,16 @@ type inExpr struct {
 	vals []any
 }
 
-// In builds col IN ($1, $2, ...).
+// In builds col IN ($1, $2, ...). With no values it renders FALSE.
 func In(col Column, values ...any) Expr {
 	return inExpr{col: col, vals: values}
 }
 
 func (e inExpr) compile(c *Compiler) {
+	if len(e.vals) == 0 {
+		c.Write("FALSE")
+		return
+	}
 	c.Write(e.col.Qualifier())
 	c.Write(" IN (")
 	for i, v := range e.vals {

@@ -104,3 +104,97 @@ func TestNeGteLt(t *testing.T) {
 		t.Fatalf("args = %v", args)
 	}
 }
+
+func TestInEmptyRendersFalse(t *testing.T) {
+	sql, args := query.Select(querytest.TUsersID).
+		From(querytest.TUsers).
+		Where(query.In(querytest.TUsersID)).
+		Build()
+
+	if want := "SELECT users.id FROM users WHERE FALSE"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 0 {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestAndOrEmpty(t *testing.T) {
+	sql, _ := query.Select(querytest.TUsersID).From(querytest.TUsers).Where(query.And()).Build()
+	if want := "SELECT users.id FROM users WHERE TRUE"; sql != want {
+		t.Fatalf("empty And sql = %q", sql)
+	}
+
+	sql, _ = query.Select(querytest.TUsersID).From(querytest.TUsers).Where(query.Or()).Build()
+	if want := "SELECT users.id FROM users WHERE FALSE"; sql != want {
+		t.Fatalf("empty Or sql = %q", sql)
+	}
+}
+
+func TestAndOrSingleExprHasNoExtraParens(t *testing.T) {
+	sql, _ := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.And(query.Eq(querytest.TUsersID, int64(1)))).Build()
+	if want := "SELECT users.id FROM users WHERE users.id = $1"; sql != want {
+		t.Fatalf("And sql = %q", sql)
+	}
+
+	sql, _ = query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.Or(query.Eq(querytest.TUsersID, int64(1)))).Build()
+	if want := "SELECT users.id FROM users WHERE users.id = $1"; sql != want {
+		t.Fatalf("Or sql = %q", sql)
+	}
+}
+
+func TestAndOrNestedEmpty(t *testing.T) {
+	sql, args := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.And(query.Eq(querytest.TUsersID, int64(1)), query.And(), query.Or())).
+		Build()
+
+	want := "SELECT users.id FROM users WHERE (users.id = $1) AND (TRUE) AND (FALSE)"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 1 {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestEmptyAndDoesNotNeedParensNextToOtherConditions(t *testing.T) {
+	sql, _ := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.And()).
+		Where(query.Eq(querytest.TUsersID, int64(1))).
+		Build()
+
+	if want := "SELECT users.id FROM users WHERE TRUE AND users.id = $1"; sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}
+
+func TestWhereKeepsOrGroupedWithOtherConditions(t *testing.T) {
+	sql, args := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		Where(query.Or(query.Eq(querytest.TUsersID, int64(1)), query.Eq(querytest.TUsersID, int64(2)))).
+		Where(query.Eq(querytest.TUsersName, "a")).
+		Where(query.RawExpr("users.email = ? OR users.email = ?", "x", "y")).
+		Build()
+
+	want := "SELECT users.id FROM users WHERE ((users.id = $1) OR (users.id = $2)) AND users.name = $3 AND (users.email = $4 OR users.email = $5)"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+	if len(args) != 5 {
+		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestHavingKeepsOrGroupedWithOtherConditions(t *testing.T) {
+	sql, _ := query.Select(querytest.TUsersID).From(querytest.TUsers).
+		GroupBy(querytest.TUsersID).
+		Having(query.RawExpr("count(*) > ? OR count(*) < ?", 1, 0)).
+		Having(query.RawExpr("max(users.id) > ?", 5)).
+		Build()
+
+	want := "SELECT users.id FROM users GROUP BY users.id HAVING (count(*) > $1 OR count(*) < $2) AND (max(users.id) > $3)"
+	if sql != want {
+		t.Fatalf("sql = %q", sql)
+	}
+}

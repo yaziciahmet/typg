@@ -29,6 +29,7 @@ func (q qualColumn) Table() Table      { return rawTable(q.table) }
 
 // RawColumn is a select-list expression with ? placeholders replaced by numbered
 // args at compile time. Use NewRawCol; do not use in WHERE/HAVING/JOIN ON.
+// Write ?? for a literal question mark.
 type RawColumn struct {
 	sql  string
 	args []any
@@ -41,7 +42,7 @@ func NewRawCol(sql string, args ...any) *RawColumn {
 
 func (r *RawColumn) SQLName() string   { return r.sql }
 func (r *RawColumn) Qualifier() string { return r.sql }
-func (r *RawColumn) Table() Table      { return nil }
+func (r *RawColumn) Table() Table      { return rawTable("") }
 
 func (r *RawColumn) compile(c *Compiler) {
 	writeInterpolated(c, r.sql, r.args)

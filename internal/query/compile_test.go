@@ -71,3 +71,32 @@ func TestRawExprLiteralQuestionMark(t *testing.T) {
 		t.Fatalf("args = %v", args)
 	}
 }
+
+func TestWriteInterpolatedEscapedQuestionMark(t *testing.T) {
+	cases := []struct {
+		name string
+		sql  string
+		args []any
+		want string
+	}{
+		{"with args", "meta ?? ? AND x = ?", []any{"k", 1}, "meta ? $1 AND x = $2"},
+		{"without args", "meta ?? 'k'", nil, "meta ? 'k'"},
+		{"single question mark without args stays literal", "meta ? 'k'", nil, "meta ? 'k'"},
+		{"single question mark after args are used up stays literal", "x = ? AND meta ? 'k'", []any{1}, "x = $1 AND meta ? 'k'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewCompiler()
+			writeInterpolated(c, tc.sql, tc.args)
+			if got := c.SQL(); got != tc.want {
+				t.Fatalf("sql = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRawColumnTableIsNotNil(t *testing.T) {
+	if NewRawCol("count(*)").Table() == nil {
+		t.Fatal("Table() must not be nil")
+	}
+}
